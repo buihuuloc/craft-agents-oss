@@ -1,8 +1,8 @@
 /**
  * ContextPanel - Displays artifacts in the contextual right column.
  *
- * Routes artifact types to placeholder renderers (to be replaced with
- * real card components in Task 9).
+ * Routes artifact types to card components (SourceCard, SkillDetailCard)
+ * or placeholder renderers for other artifact kinds.
  */
 
 import { useAtom } from 'jotai'
@@ -10,6 +10,8 @@ import { X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { activeArtifactAtom } from '@/atoms/artifact'
+import { SourceCard } from './SourceCard'
+import { SkillDetailCard } from './SkillDetailCard'
 import type { ArtifactType } from '@/types/artifact'
 
 function getTitle(artifact: ArtifactType): string {
@@ -30,9 +32,9 @@ function getTitle(artifact: ArtifactType): string {
 function ArtifactRenderer({ artifact }: { artifact: ArtifactType }) {
   switch (artifact.kind) {
     case 'source':
-      return <div className="text-sm text-foreground-50">Source: {artifact.sourceSlug}</div>
+      return <SourceCard sourceSlug={artifact.sourceSlug} />
     case 'skill':
-      return <div className="text-sm text-foreground-50">Skill: {artifact.skillSlug}</div>
+      return <SkillDetailCard skillSlug={artifact.skillSlug} />
     case 'session-meta':
       return <div className="text-sm text-foreground-50">Session: {artifact.sessionId}</div>
     case 'settings-preview':
