@@ -8,7 +8,7 @@ import { defaultSessionOptions, mergeSessionOptions } from './hooks/useSessionOp
 import { generateMessageId } from '../shared/types'
 import { useEventProcessor } from './event-processor'
 import type { AgentEvent, Effect } from './event-processor'
-import { AppShell } from '@/components/app-shell/AppShell'
+import { ChatDominantShell } from '@/components/app-shell/ChatDominantShell'
 import type { AppShellContextType } from '@/context/AppShellContext'
 import { OnboardingWizard, ReauthScreen } from '@/components/onboarding'
 import { ResetConfirmationDialog } from '@/components/ResetConfirmationDialog'
@@ -1404,9 +1404,8 @@ export default function App() {
           {/* Main UI - always rendered, splash fades away to reveal it */}
           <div className="h-full flex flex-col text-foreground">
             <div className="flex-1 min-h-0">
-              <AppShell
+              <ChatDominantShell
                 contextValue={appShellContextValue}
-                defaultLayout={[20, 32, 48]}
                 menuNewChatTrigger={menuNewChatTrigger}
                 isFocusedMode={isFocusedMode}
               />
