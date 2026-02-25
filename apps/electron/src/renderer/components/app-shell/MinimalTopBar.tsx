@@ -47,7 +47,7 @@ export function MinimalTopBar({ onCommandPaletteOpen, minimal }: MinimalTopBarPr
   return (
     <div
       className={cn(
-        'flex shrink-0 items-center h-11 titlebar-drag-region',
+        'flex shrink-0 items-center h-11 bg-transparent titlebar-drag-region',
         // Left padding: compensate for macOS traffic lights (stoplight)
         isMac ? 'pl-[80px]' : 'pl-3',
         'pr-2'
