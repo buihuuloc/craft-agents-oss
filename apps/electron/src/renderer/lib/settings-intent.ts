@@ -32,9 +32,9 @@ export interface SettingDefinition {
 
 /** Resolve the active workspace ID from the Electron main process. */
 async function getActiveWorkspaceId(): Promise<string> {
-  const ws = await window.electronAPI.getWindowWorkspace()
-  if (!ws?.id) throw new Error('No active workspace')
-  return ws.id
+  const wsId = await window.electronAPI.getWindowWorkspace()
+  if (!wsId) throw new Error('No active workspace')
+  return wsId
 }
 
 /** Read a single workspace setting by key. */
@@ -47,7 +47,7 @@ async function getWorkspaceSetting<T = unknown>(key: string): Promise<T> {
 /** Write a single workspace setting by key. */
 async function setWorkspaceSetting(key: string, value: unknown): Promise<void> {
   const wsId = await getActiveWorkspaceId()
-  await window.electronAPI.updateWorkspaceSetting(wsId, key, value)
+  await window.electronAPI.updateWorkspaceSetting(wsId, key as any, value as any)
 }
 
 // ---------------------------------------------------------------------------
@@ -337,12 +337,11 @@ export const settingsRegistry: SettingDefinition[] = [
     },
     setValue: async (v) => {
       const connections = await window.electronAPI.listLlmConnectionsWithStatus()
-      const def = (connections as Array<Record<string, unknown>>).find((c) => c.isDefault)
+      const def = connections.find((c) => c.isDefault)
       if (!def) throw new Error('No default connection found')
-      const updated = { ...def, defaultModel: v as string }
-      // Strip runtime-only status fields before saving
-      const { isAuthenticated: _a, authError: _b, isDefault: _c, ...connectionData } = updated
-      await window.electronAPI.saveLlmConnection(connectionData as any)
+      // Strip runtime-only status fields before saving as LlmConnection
+      const { isAuthenticated: _a, authError: _b, isDefault: _c, ...connectionData } = def
+      await window.electronAPI.saveLlmConnection({ ...connectionData, defaultModel: v as string })
     },
   },
   {
