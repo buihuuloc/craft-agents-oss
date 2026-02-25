@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react"
 import { useAction, useActionLabel } from "@/actions"
-import { formatDistanceToNow, formatDistanceToNowStrict, isToday, isYesterday, format, startOfDay } from "date-fns"
-import type { Locale } from "date-fns"
+import { formatDistanceToNow, isToday, isYesterday, format, startOfDay } from "date-fns"
+import { formatRelativeTime } from "@/lib/format-relative-time"
 import { MoreHorizontal, Flag, Copy, Link2Off, CloudUpload, Globe, RefreshCw, Inbox, Check, Archive } from "lucide-react"
 import { toast } from "sonner"
 
@@ -67,22 +67,6 @@ const INITIAL_DISPLAY_LIMIT = 20
 const BATCH_SIZE = 20
 const MAX_SEARCH_RESULTS = 100
 
-/** Short relative time locale for date-fns formatDistanceToNowStrict.
- *  Produces compact strings: "7m", "2h", "3d", "2w", "5mo", "1y" */
-const shortTimeLocale: Pick<Locale, 'formatDistance'> = {
-  formatDistance: (token: string, count: number) => {
-    const units: Record<string, string> = {
-      xSeconds: `${count}s`,
-      xMinutes: `${count}m`,
-      xHours: `${count}h`,
-      xDays: `${count}d`,
-      xWeeks: `${count}w`,
-      xMonths: `${count}mo`,
-      xYears: `${count}y`,
-    }
-    return units[token] || `${count}`
-  },
-}
 
 /**
  * Format a date for the date header
@@ -731,7 +715,7 @@ function SessionItem({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span className="shrink-0 text-[11px] text-foreground/40 whitespace-nowrap cursor-default">
-                      {formatDistanceToNowStrict(new Date(item.lastMessageAt), { locale: shortTimeLocale as Locale, roundingMethod: 'floor' })}
+                      {formatRelativeTime(item.lastMessageAt)}
                     </span>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" sideOffset={4}>

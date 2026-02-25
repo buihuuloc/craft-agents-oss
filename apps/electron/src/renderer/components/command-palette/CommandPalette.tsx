@@ -10,8 +10,7 @@
 
 import { useCallback, useMemo } from 'react'
 import { useAtom, useAtomValue } from 'jotai'
-import { formatDistanceToNowStrict } from 'date-fns'
-import type { Locale } from 'date-fns'
+import { formatRelativeTime } from '@/lib/format-relative-time'
 import {
   MessageSquare,
   Plug,
@@ -35,34 +34,11 @@ import {
   CommandItem,
 } from '@/components/ui/command'
 import { useNavigation, routes } from '@/contexts/NavigationContext'
-import { SETTINGS_PAGES } from '../../../shared/settings-registry'
+import { SETTINGS_PAGES, isValidSettingsSubpage } from '../../../shared/settings-registry'
 import { useTheme } from '@/context/ThemeContext'
 
 /** Max results per group to keep the palette snappy */
 const MAX_RESULTS_PER_GROUP = 5
-
-/** Short relative time locale (compact: "7m", "2h", "3d") */
-const shortTimeLocale: Pick<Locale, 'formatDistance'> = {
-  formatDistance: (token: string, count: number) => {
-    const units: Record<string, string> = {
-      xSeconds: `${count}s`,
-      xMinutes: `${count}m`,
-      xHours: `${count}h`,
-      xDays: `${count}d`,
-      xWeeks: `${count}w`,
-      xMonths: `${count}mo`,
-      xYears: `${count}y`,
-    }
-    return units[token] ?? ''
-  },
-}
-
-function formatRelativeTime(timestamp: number): string {
-  return formatDistanceToNowStrict(new Date(timestamp), {
-    locale: shortTimeLocale as Locale,
-    roundingMethod: 'floor',
-  })
-}
 
 export function CommandPalette() {
   const [open, setOpen] = useAtom(commandPaletteOpenAtom)
@@ -76,7 +52,7 @@ export function CommandPalette() {
   const sessions = useMemo(() => {
     const all: SessionMeta[] = []
     for (const meta of sessionMetaMap.values()) {
-      if (meta.hidden || meta.isArchived) continue
+      if (meta.hidden || meta.isArchived || meta.parentSessionId) continue
       all.push(meta)
     }
     all.sort((a, b) => (b.lastMessageAt ?? 0) - (a.lastMessageAt ?? 0))
@@ -121,9 +97,11 @@ export function CommandPalette() {
   )
 
   const handleSelectSetting = useCallback(
-    (subpage: string) => {
-      navigate(routes.view.settings(subpage as Parameters<typeof routes.view.settings>[0]))
-      close()
+    (id: string) => {
+      if (isValidSettingsSubpage(id)) {
+        navigate(routes.view.settings(id))
+        close()
+      }
     },
     [navigate, close]
   )
@@ -196,7 +174,7 @@ export function CommandPalette() {
                 onSelect={() => handleSelectSkill(skill.slug)}
               >
                 <Sparkles className="text-muted-foreground" />
-                <span className="truncate">{skill.metadata.name}</span>
+                <span className="flex-1 truncate">{skill.metadata.name}</span>
               </CommandItem>
             ))}
           </CommandGroup>
