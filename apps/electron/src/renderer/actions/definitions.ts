@@ -4,6 +4,14 @@ export const actions = {
   // ═══════════════════════════════════════════
   // General
   // ═══════════════════════════════════════════
+  'app.commandPalette': {
+    id: 'app.commandPalette',
+    label: 'Command Palette',
+    description: 'Toggle the command palette',
+    defaultHotkey: 'mod+k',
+    category: 'General',
+    inputSafe: true,  // Must work while typing in chat/search input
+  },
   'app.newChat': {
     id: 'app.newChat',
     label: 'New Chat',

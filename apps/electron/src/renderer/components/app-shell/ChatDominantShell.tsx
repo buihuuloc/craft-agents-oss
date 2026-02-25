@@ -24,12 +24,15 @@ import {
 import { EscapeInterruptProvider } from '@/context/EscapeInterruptContext'
 import { useTheme } from '@/context/ThemeContext'
 import {
+  useNavigation,
   useNavigationState,
+  routes,
   isSessionsNavigation,
   isSourcesNavigation,
   isSettingsNavigation,
   isSkillsNavigation,
 } from '@/contexts/NavigationContext'
+import { useAction } from '@/actions'
 import { useSession } from '@/hooks/useSession'
 import { useStatuses } from '@/hooks/useStatuses'
 import { useLabels } from '@/hooks/useLabels'
@@ -90,6 +93,31 @@ function ChatDominantShellContent({
   const { isDark } = useTheme()
   const [session, setSession] = useSession()
   const setCommandPaletteOpen = useSetAtom(commandPaletteOpenAtom)
+  const { navigate } = useNavigation()
+
+  // -------------------------------------------------------------------------
+  // Global keyboard shortcuts (using centralized action registry)
+  // Actions are defined in @/actions/definitions.ts
+  // -------------------------------------------------------------------------
+
+  // Cmd+K / Ctrl+K → toggle command palette
+  useAction('app.commandPalette', () => {
+    setCommandPaletteOpen(prev => !prev)
+  })
+
+  // Cmd+N / Ctrl+N → create new session
+  useAction('app.newChat', () => {
+    if (openNewChat) {
+      openNewChat()
+    } else {
+      navigate(routes.action.newSession())
+    }
+  })
+
+  // Cmd+, / Ctrl+, → navigate to settings
+  useAction('app.settings', () => {
+    navigate(routes.view.settings())
+  })
 
   // -------------------------------------------------------------------------
   // Sources -- loaded from backend, kept in sync via live updates
