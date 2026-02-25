@@ -48,6 +48,7 @@ import { clearSourceIconCaches } from '@/lib/icon-cache'
 import { MinimalTopBar } from './MinimalTopBar'
 import { CommandPalette } from '@/components/command-palette/CommandPalette'
 import { ContextPanel } from '@/components/context-panel'
+import { HomeScreen } from '@/components/home'
 import { SourceInfoPage, ChatPage } from '@/pages'
 import SkillInfoPage from '@/pages/SkillInfoPage'
 import { getSettingsPageComponent } from '@/pages/settings/settings-pages'
@@ -284,13 +285,19 @@ function ChatDominantShellContent({
   // -------------------------------------------------------------------------
   // Render
   // -------------------------------------------------------------------------
+  const navigationState = useNavigationState()
+  const isHomeScreen = isSessionsNavigation(navigationState) && !navigationState.details?.sessionId
+
   return (
     <AppShellProvider value={enrichedContextValue}>
       <div className="flex flex-col h-screen w-screen">
         {/* Draggable title bar region for transparent window (macOS) */}
         <div className="titlebar-drag-region fixed top-0 left-0 right-0 h-[50px] z-titlebar" />
 
-        <MinimalTopBar onCommandPaletteOpen={() => setCommandPaletteOpen(true)} />
+        <MinimalTopBar
+          onCommandPaletteOpen={() => setCommandPaletteOpen(true)}
+          minimal={isHomeScreen}
+        />
 
         <div className="flex flex-1 min-h-0">
           {/* Main content -- full width by default */}
@@ -385,12 +392,8 @@ function MainContent() {
       )
     }
 
-    // No session selected -- empty state (HomeScreen comes in Task 17)
-    return (
-      <div className="flex items-center justify-center h-full text-muted-foreground">
-        <p className="text-sm">Start a new conversation</p>
-      </div>
-    )
+    // No session selected → show home screen
+    return <HomeScreen />
   }
 
   // Fallback
