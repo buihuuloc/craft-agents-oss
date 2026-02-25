@@ -35,7 +35,7 @@ import {
   CommandItem,
 } from '@/components/ui/command'
 import { useNavigation, routes } from '@/contexts/NavigationContext'
-import { SETTINGS_PAGES, isValidSettingsSubpage } from '../../../shared/settings-registry'
+import { SETTINGS_PAGES } from '../../../shared/settings-registry'
 import { useTheme } from '@/context/ThemeContext'
 
 /** Max results per group to keep the palette snappy */
@@ -100,10 +100,20 @@ export function CommandPalette() {
 
   const handleSelectSetting = useCallback(
     (id: string) => {
-      if (isValidSettingsSubpage(id)) {
-        navigate(routes.view.settings(id))
-        close()
+      const settingMessages: Record<string, string> = {
+        app: 'Show me my app settings',
+        ai: 'Show me my AI configuration',
+        appearance: 'Show me my appearance settings',
+        workspace: 'Show me my workspace settings',
+        permissions: 'Show me my permission settings',
+        labels: 'Show me my label settings',
+        input: 'Show me my input settings',
+        preferences: 'Show me my preferences',
+        shortcuts: 'Show me my keyboard shortcuts',
       }
+      const message = settingMessages[id] || `Show me my ${id} settings`
+      navigate(routes.action.newSession({ input: message, send: true }))
+      close()
     },
     [navigate, close]
   )

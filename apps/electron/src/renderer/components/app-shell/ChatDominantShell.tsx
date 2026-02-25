@@ -31,7 +31,6 @@ import {
   routes,
   isSessionsNavigation,
   isSourcesNavigation,
-  isSettingsNavigation,
   isSkillsNavigation,
 } from '@/contexts/NavigationContext'
 import { useAction } from '@/actions'
@@ -51,7 +50,6 @@ import { ContextPanel } from '@/components/context-panel'
 import { HomeScreen } from '@/components/home'
 import { SourceInfoPage, ChatPage } from '@/pages'
 import SkillInfoPage from '@/pages/SkillInfoPage'
-import { getSettingsPageComponent } from '@/pages/settings/settings-pages'
 
 // ---------------------------------------------------------------------------
 // Props
@@ -120,9 +118,9 @@ function ChatDominantShellContent({
     }
   })
 
-  // Cmd+, / Ctrl+, → navigate to settings
+  // Cmd+, / Ctrl+, → open settings via chat message
   useAction('app.settings', () => {
-    navigate(routes.view.settings())
+    navigate(routes.action.newSession({ input: 'Show me my settings', send: true }))
   })
 
   // Escape → close context panel (only when panel is open and command palette is closed)
@@ -333,16 +331,6 @@ function ChatDominantShellContent({
 function MainContent() {
   const navState = useNavigationState()
   const { activeWorkspaceId } = useAppShellContext()
-
-  // Settings navigator
-  if (isSettingsNavigation(navState)) {
-    const SettingsPageComponent = getSettingsPageComponent(navState.subpage)
-    return SettingsPageComponent ? (
-      <div className="h-full">
-        <SettingsPageComponent />
-      </div>
-    ) : null
-  }
 
   // Sources navigator
   if (isSourcesNavigation(navState)) {
