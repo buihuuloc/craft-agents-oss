@@ -61,6 +61,13 @@ export const actions = {
     defaultHotkey: 'mod+q',
     category: 'General',
   },
+  'app.closePanel': {
+    id: 'app.closePanel',
+    label: 'Close Panel',
+    description: 'Close the context panel',
+    defaultHotkey: 'escape',
+    category: 'General',
+  },
 
   // ═══════════════════════════════════════════
   // Navigation

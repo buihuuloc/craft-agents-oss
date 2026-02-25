@@ -9,7 +9,7 @@
  */
 
 import { useCallback, useMemo } from 'react'
-import { useAtom, useAtomValue } from 'jotai'
+import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { formatRelativeTime } from '@/lib/format-relative-time'
 import {
   MessageSquare,
@@ -21,6 +21,7 @@ import {
   Sun,
 } from 'lucide-react'
 
+import { activeArtifactAtom } from '@/atoms/artifact'
 import { commandPaletteOpenAtom } from '@/atoms/command-palette'
 import { sessionMetaMapAtom, type SessionMeta } from '@/atoms/sessions'
 import { sourcesAtom } from '@/atoms/sources'
@@ -45,6 +46,7 @@ export function CommandPalette() {
   const sessionMetaMap = useAtomValue(sessionMetaMapAtom)
   const sources = useAtomValue(sourcesAtom)
   const skills = useAtomValue(skillsAtom)
+  const setArtifact = useSetAtom(activeArtifactAtom)
   const { navigate } = useNavigation()
   const { resolvedMode, setMode } = useTheme()
 
@@ -82,18 +84,18 @@ export function CommandPalette() {
 
   const handleSelectSource = useCallback(
     (sourceSlug: string) => {
-      navigate(routes.view.sources({ sourceSlug }))
+      setArtifact({ kind: 'source', sourceSlug })
       close()
     },
-    [navigate, close]
+    [setArtifact, close]
   )
 
   const handleSelectSkill = useCallback(
     (skillSlug: string) => {
-      navigate(routes.view.skills(skillSlug))
+      setArtifact({ kind: 'skill', skillSlug })
       close()
     },
-    [navigate, close]
+    [setArtifact, close]
   )
 
   const handleSelectSetting = useCallback(

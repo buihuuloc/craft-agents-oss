@@ -12,7 +12,9 @@
  */
 
 import { useRef, useCallback, useState, useEffect, useMemo } from 'react'
-import { useSetAtom } from 'jotai'
+import { AnimatePresence, motion } from 'motion/react'
+import { useAtomValue, useSetAtom } from 'jotai'
+import { activeArtifactAtom } from '@/atoms/artifact'
 import { commandPaletteOpenAtom } from '@/atoms/command-palette'
 import { sourcesAtom } from '@/atoms/sources'
 import { skillsAtom } from '@/atoms/skills'
@@ -45,6 +47,7 @@ import { clearSourceIconCaches } from '@/lib/icon-cache'
 
 import { MinimalTopBar } from './MinimalTopBar'
 import { CommandPalette } from '@/components/command-palette/CommandPalette'
+import { ContextPanel } from '@/components/context-panel'
 import { SourceInfoPage, ChatPage } from '@/pages'
 import SkillInfoPage from '@/pages/SkillInfoPage'
 import { getSettingsPageComponent } from '@/pages/settings/settings-pages'
@@ -93,6 +96,8 @@ function ChatDominantShellContent({
   const { isDark } = useTheme()
   const [session, setSession] = useSession()
   const setCommandPaletteOpen = useSetAtom(commandPaletteOpenAtom)
+  const artifact = useAtomValue(activeArtifactAtom)
+  const setArtifact = useSetAtom(activeArtifactAtom)
   const { navigate } = useNavigation()
 
   // -------------------------------------------------------------------------
@@ -117,6 +122,11 @@ function ChatDominantShellContent({
   // Cmd+, / Ctrl+, → navigate to settings
   useAction('app.settings', () => {
     navigate(routes.view.settings())
+  })
+
+  // Escape → close context panel (only when panel is open and command palette is closed)
+  useAction('app.closePanel', () => {
+    setArtifact(null)
   })
 
   // -------------------------------------------------------------------------
@@ -287,7 +297,20 @@ function ChatDominantShellContent({
           <div className="flex-1 min-w-0">
             <MainContent />
           </div>
-          {/* Context panel slot -- will be wired in Task 8 */}
+          <AnimatePresence>
+            {artifact && (
+              <motion.div
+                key="context-panel"
+                initial={{ width: 0, opacity: 0 }}
+                animate={{ width: 480, opacity: 1 }}
+                exit={{ width: 0, opacity: 0 }}
+                transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+                className="border-l border-foreground-90 overflow-hidden shrink-0"
+              >
+                <ContextPanel />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         <CommandPalette />
