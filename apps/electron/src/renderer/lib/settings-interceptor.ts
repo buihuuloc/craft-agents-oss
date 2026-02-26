@@ -90,7 +90,8 @@ const SETTINGS_PATTERNS: Array<{
 
   // ── Color theme (must be AFTER themeMode patterns to avoid conflicts) ──
   { pattern: /(?:use|apply|activate)\s+(?:the\s+)?([\w-]+)\s+(?:color\s+)?theme/i, settingKey: 'colorTheme', extractValue: (m) => m[1].toLowerCase() },
-  { pattern: /(?:set|change|switch)\s+(?:the\s+)?color\s+theme\s+(?:to\s+)?([\w-]+)/i, settingKey: 'colorTheme', extractValue: (m) => m[1].toLowerCase() },
+  { pattern: /(?:set|change|switch)\s+(?:the\s+)?(?:color\s+)?theme\s+(?:(?:change|set|switch)\s+)?(?:to\s+)([\w-]+)/i, settingKey: 'colorTheme', extractValue: (m) => m[1].toLowerCase() },
+  { pattern: /(?:color\s+)?theme\s+(?:change|set|switch)\s+(?:to\s+)([\w-]+)/i, settingKey: 'colorTheme', extractValue: (m) => m[1].toLowerCase() },
 
   // ── Workspace color theme ───────────────────────────────────────────────
   { pattern: /(?:set|change)\s+(?:the\s+)?workspace\s+(?:color\s+)?theme\s+(?:to\s+)?([\w-]+)/i, settingKey: 'workspaceColorTheme', extractValue: (m) => m[1].toLowerCase() },
@@ -118,7 +119,7 @@ const SETTINGS_PATTERNS: Array<{
   { pattern: /(?:set|change)\s+(?:my\s+)?(?:preference\s+)?notes?\s+(?:to\s+)(.+)/i, settingKey: 'notes', extractValue: (m) => m[1].trim() },
 
   // ── Default model ──────────────────────────────────────────────────────
-  { pattern: /(?:use|set|change|switch)\s+(?:the\s+)?(?:default\s+)?model\s+(?:to\s+)(.+)/i, settingKey: 'defaultModel', extractValue: (m) => m[1].trim() },
+  { pattern: /(?:use|set|change|switch)\s+(?:the\s+)?(?:default\s+)?model\s+(?:to\s+)?(.+)/i, settingKey: 'defaultModel', extractValue: (m) => m[1].trim() },
 
   // ── Default LLM connection ─────────────────────────────────────────────
   { pattern: /(?:use|set|switch)\s+(?:the\s+)?(?:default\s+)?(?:llm\s+)?connection\s+(?:to\s+)(.+)/i, settingKey: 'defaultLlmConnection', extractValue: (m) => m[1].trim() },
