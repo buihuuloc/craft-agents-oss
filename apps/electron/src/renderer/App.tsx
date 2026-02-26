@@ -62,6 +62,81 @@ type AppState = 'loading' | 'onboarding' | 'reauth' | 'ready'
 /** Type for the Jotai store returned by useStore() */
 type JotaiStore = ReturnType<typeof getDefaultStore>
 
+// --- Type guards ---
+
+/** Known AgentEvent type discriminants for runtime validation */
+const AGENT_EVENT_TYPES = new Set([
+  'text_delta', 'text_complete', 'tool_start', 'tool_result',
+  'complete', 'error', 'typed_error', 'permission_request', 'credential_request',
+  'sources_changed', 'labels_changed', 'session_status_changed',
+  'session_flagged', 'session_unflagged', 'session_archived', 'session_unarchived',
+  'name_changed', 'plan_submitted', 'status', 'info', 'interrupted',
+  'title_generated', 'title_regenerating', 'async_operation',
+  'working_directory_changed', 'permission_mode_changed', 'session_model_changed',
+  'connection_changed', 'task_backgrounded', 'shell_backgrounded', 'task_progress',
+  'user_message', 'session_shared', 'session_unshared',
+  'auth_request', 'auth_completed', 'source_activated', 'usage_update',
+])
+
+function isAgentEvent(event: unknown): event is AgentEvent {
+  return (
+    typeof event === 'object' &&
+    event !== null &&
+    'type' in event &&
+    'sessionId' in event &&
+    typeof (event as { type: unknown }).type === 'string' &&
+    AGENT_EVENT_TYPES.has((event as { type: string }).type)
+  )
+}
+
+// --- Type guards for background task events ---
+
+interface TaskBackgroundedEvent {
+  taskId: string
+  toolUseId: string
+  intent?: string
+}
+
+interface ShellBackgroundedEvent {
+  shellId: string
+  toolUseId: string
+  intent?: string
+}
+
+interface TaskProgressEvent {
+  toolUseId: string
+  elapsedSeconds: number
+}
+
+interface ShellKilledEvent {
+  shellId: string
+}
+
+interface ToolResultEvent {
+  toolUseId: string
+  result?: unknown
+}
+
+function isTaskBackgroundedEvent(event: unknown): event is TaskBackgroundedEvent {
+  return typeof event === 'object' && event !== null && 'taskId' in event && 'toolUseId' in event
+}
+
+function isShellBackgroundedEvent(event: unknown): event is ShellBackgroundedEvent {
+  return typeof event === 'object' && event !== null && 'shellId' in event && 'toolUseId' in event
+}
+
+function isTaskProgressEvent(event: unknown): event is TaskProgressEvent {
+  return typeof event === 'object' && event !== null && 'toolUseId' in event && 'elapsedSeconds' in event
+}
+
+function isShellKilledEvent(event: unknown): event is ShellKilledEvent {
+  return typeof event === 'object' && event !== null && 'shellId' in event
+}
+
+function isToolResultEvent(event: unknown): event is ToolResultEvent {
+  return typeof event === 'object' && event !== null && 'toolUseId' in event
+}
+
 /**
  * Helper to handle background task events from the agent.
  * Updates the backgroundTasksAtomFamily based on event type.
@@ -73,58 +148,56 @@ function handleBackgroundTaskEvent(
   event: { type: string },
   agentEvent: unknown
 ): void {
-  // Type guard for accessing properties
-  const evt = agentEvent as Record<string, unknown>
   const backgroundTasksAtom = backgroundTasksAtomFamily(sessionId)
 
-  if (event.type === 'task_backgrounded' && 'taskId' in evt && 'toolUseId' in evt) {
+  if (event.type === 'task_backgrounded' && isTaskBackgroundedEvent(agentEvent)) {
     const currentTasks = store.get(backgroundTasksAtom)
-    const exists = currentTasks.some(t => t.toolUseId === evt.toolUseId)
+    const exists = currentTasks.some(t => t.toolUseId === agentEvent.toolUseId)
     if (!exists) {
       store.set(backgroundTasksAtom, [
         ...currentTasks,
         {
-          id: evt.taskId as string,
+          id: agentEvent.taskId,
           type: 'agent' as const,
-          toolUseId: evt.toolUseId as string,
+          toolUseId: agentEvent.toolUseId,
           startTime: Date.now(),
           elapsedSeconds: 0,
-          intent: evt.intent as string | undefined,
+          intent: agentEvent.intent,
         },
       ])
     }
-  } else if (event.type === 'shell_backgrounded' && 'shellId' in evt && 'toolUseId' in evt) {
+  } else if (event.type === 'shell_backgrounded' && isShellBackgroundedEvent(agentEvent)) {
     const currentTasks = store.get(backgroundTasksAtom)
-    const exists = currentTasks.some(t => t.toolUseId === evt.toolUseId)
+    const exists = currentTasks.some(t => t.toolUseId === agentEvent.toolUseId)
     if (!exists) {
       store.set(backgroundTasksAtom, [
         ...currentTasks,
         {
-          id: evt.shellId as string,
+          id: agentEvent.shellId,
           type: 'shell' as const,
-          toolUseId: evt.toolUseId as string,
+          toolUseId: agentEvent.toolUseId,
           startTime: Date.now(),
           elapsedSeconds: 0,
-          intent: evt.intent as string | undefined,
+          intent: agentEvent.intent,
         },
       ])
     }
-  } else if (event.type === 'task_progress' && 'toolUseId' in evt && 'elapsedSeconds' in evt) {
+  } else if (event.type === 'task_progress' && isTaskProgressEvent(agentEvent)) {
     const currentTasks = store.get(backgroundTasksAtom)
     store.set(backgroundTasksAtom, currentTasks.map(t =>
-      t.toolUseId === evt.toolUseId
-        ? { ...t, elapsedSeconds: evt.elapsedSeconds as number }
+      t.toolUseId === agentEvent.toolUseId
+        ? { ...t, elapsedSeconds: agentEvent.elapsedSeconds }
         : t
     ))
-  } else if (event.type === 'shell_killed' && 'shellId' in evt) {
+  } else if (event.type === 'shell_killed' && isShellKilledEvent(agentEvent)) {
     // Remove shell task when KillShell succeeds
     const currentTasks = store.get(backgroundTasksAtom)
-    store.set(backgroundTasksAtom, currentTasks.filter(t => t.id !== evt.shellId))
-  } else if (event.type === 'tool_result' && 'toolUseId' in evt) {
+    store.set(backgroundTasksAtom, currentTasks.filter(t => t.id !== agentEvent.shellId))
+  } else if (event.type === 'tool_result' && isToolResultEvent(agentEvent)) {
     // Remove task when it completes - but NOT if this is the initial backgrounding result
     // Background tasks return immediately with agentId/shell_id/backgroundTaskId,
     // we should only remove when the task actually completes
-    const result = typeof evt.result === 'string' ? evt.result : JSON.stringify(evt.result)
+    const result = typeof agentEvent.result === 'string' ? agentEvent.result : JSON.stringify(agentEvent.result)
     const isBackgroundingResult = result && (
       /agentId:\s*[a-zA-Z0-9_-]+/.test(result) ||
       /shell_id:\s*[a-zA-Z0-9_-]+/.test(result) ||
@@ -132,7 +205,7 @@ function handleBackgroundTaskEvent(
     )
     if (!isBackgroundingResult) {
       const currentTasks = store.get(backgroundTasksAtom)
-      store.set(backgroundTasksAtom, currentTasks.filter(t => t.toolUseId !== evt.toolUseId))
+      store.set(backgroundTasksAtom, currentTasks.filter(t => t.toolUseId !== agentEvent.toolUseId))
     }
   }
   // Note: We do NOT clear background tasks on complete/error/interrupted
@@ -543,7 +616,6 @@ export default function App() {
 
       const sessionId = event.sessionId
       const workspaceId = windowWorkspaceId ?? ''
-      const agentEvent = event as unknown as AgentEvent
 
       // Dispatch window event when compaction completes
       // This allows FreeFormInput to sequence the plan execution message after compaction
@@ -554,6 +626,14 @@ export default function App() {
           detail: { sessionId }
         }))
       }
+
+      // Handle background task events (works with raw SessionEvent via internal type guards)
+      // Must run for all events including shell_killed which is not part of AgentEvent
+      handleBackgroundTaskEvent(store, sessionId, event, event)
+
+      // Validate event is a known AgentEvent before processing through event processor
+      if (!isAgentEvent(event)) return
+      const agentEvent: AgentEvent = event
 
       // Check if session is currently streaming (atom is source of truth)
       const atomSession = store.get(sessionAtomFamily(sessionId))
@@ -577,9 +657,6 @@ export default function App() {
 
         // Handle side effects
         handleEffects(effects, sessionId, event.type)
-
-        // Handle background task events
-        handleBackgroundTaskEvent(store, sessionId, event, agentEvent)
 
         // For handoff events, update metadata map for list display
         // NOTE: No sessionsAtom to sync - atom and metadata are the source of truth
@@ -618,9 +695,6 @@ export default function App() {
 
       // Handle side effects
       handleEffects(effects, sessionId, event.type)
-
-      // Handle background task events
-      handleBackgroundTaskEvent(store, sessionId, event, agentEvent)
 
       // Update per-session atom
       updateSessionDirect(sessionId, () => updatedSession)
