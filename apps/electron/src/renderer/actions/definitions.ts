@@ -4,6 +4,14 @@ export const actions = {
   // ═══════════════════════════════════════════
   // General
   // ═══════════════════════════════════════════
+  'app.commandPalette': {
+    id: 'app.commandPalette',
+    label: 'Command Palette',
+    description: 'Toggle the command palette',
+    defaultHotkey: 'mod+k',
+    category: 'General',
+    inputSafe: true,  // Must work while typing in chat/search input
+  },
   'app.newChat': {
     id: 'app.newChat',
     label: 'New Chat',
@@ -51,6 +59,13 @@ export const actions = {
     label: 'Quit',
     description: 'Quit the application',
     defaultHotkey: 'mod+q',
+    category: 'General',
+  },
+  'app.closePanel': {
+    id: 'app.closePanel',
+    label: 'Close Panel',
+    description: 'Close the context panel',
+    defaultHotkey: 'escape',
     category: 'General',
   },
 

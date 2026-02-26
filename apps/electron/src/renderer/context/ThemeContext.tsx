@@ -338,6 +338,27 @@ export function ThemeProvider({
     }
   }, [])
 
+  // === Local settings-intent sync listener ===
+  // The settings interceptor and settings tool dispatch 'craft-settings-changed'
+  // after applying any setting. We listen for theme-related keys.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { key, value } = (e as CustomEvent).detail
+      if (key === 'themeMode' || key === 'colorTheme' || key === 'font') {
+        isExternalUpdate.current = true
+        if (key === 'themeMode') setModeState(value as ThemeMode)
+        else if (key === 'colorTheme') setColorThemeState(value as string)
+        else if (key === 'font') setFontState(value as FontFamily)
+        setTimeout(() => {
+          isExternalUpdate.current = false
+        }, 0)
+      }
+    }
+
+    window.addEventListener('craft-settings-changed', handler)
+    return () => window.removeEventListener('craft-settings-changed', handler)
+  }, [])
+
   // === Cross-window sync listener ===
   useEffect(() => {
     if (!window.electronAPI?.onThemePreferencesChange) return

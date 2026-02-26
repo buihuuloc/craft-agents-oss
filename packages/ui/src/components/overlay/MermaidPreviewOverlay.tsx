@@ -5,12 +5,12 @@
  * with Figma-style zoom controls.
  *
  * Input methods:
- *   - Mousewheel:     Zoom toward cursor (sensitivity adapts to mouse vs trackpad)
- *   - Trackpad pinch: Smooth proportional zoom (ctrlKey wheel events)
+ *   - Trackpad pinch: Smooth proportional zoom (ctrlKey wheel events on macOS)
+ *   - Mousewheel:     Zoom toward cursor
  *   - Click-drag:     Pan the diagram
- *   - Double-click:   Reset to 100% centered
+ *   - Double-click:   Reset to zoom-to-fit
  *   - Cmd/Ctrl +/-:   Zoom in/out by 25% steps toward viewport center
- *   - Cmd/Ctrl 0:     Reset to 100%
+ *   - Cmd/Ctrl 0:     Reset to zoom-to-fit
  *   - +/− buttons:    25% step zoom toward viewport center
  *   - Preset dropdown: Jump to 25/50/75/100/150/200/400% or "Zoom to Fit"
  *
@@ -25,11 +25,10 @@ import { CopyButton } from './CopyButton'
 
 // ── Zoom constants ───────────────────────────────────────────────────────
 
-const MIN_SCALE = 0.25
+const MIN_SCALE = 0.1
 const MAX_SCALE = 4
 
 // Step factor for +/- buttons and keyboard shortcuts (25% increments).
-// 1.25 and 0.8 (1/1.25) are clean fractions that perfectly cancel out.
 const ZOOM_STEP_FACTOR = 1.25
 
 // Zoom presets shown in the dropdown (percentages)
@@ -45,11 +44,12 @@ function parseSvgDimensions(svgString: string): { width: number; height: number 
   return { width: parseFloat(widthMatch[1]), height: parseFloat(heightMatch[1]) }
 }
 
+/** Clamp a value between min and max. */
+function clampScale(value: number): number {
+  return Math.min(MAX_SCALE, Math.max(MIN_SCALE, value))
+}
+
 // ── Inline zoom dropdown ─────────────────────────────────────────────────
-// Rendered in-place (no portal) to avoid Radix Dialog focus-trap issues.
-// SimpleDropdown uses createPortal to document.body which escapes the dialog's
-// DOM tree — the dialog's focus trap blocks interactions with the portaled menu.
-// This inline version renders within the overlay's own DOM, sidestepping the issue.
 
 interface ZoomDropdownProps {
   zoomPercent: number
@@ -62,7 +62,6 @@ function ZoomDropdown({ zoomPercent, activePreset, onZoomToFit, onZoomToPreset }
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
-  // Close on click-outside or Escape
   useEffect(() => {
     if (!isOpen) return
 
@@ -74,7 +73,7 @@ function ZoomDropdown({ zoomPercent, activePreset, onZoomToFit, onZoomToPreset }
 
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        e.stopPropagation() // Don't let Escape close the overlay too
+        e.stopPropagation()
         setIsOpen(false)
       }
     }
@@ -89,7 +88,6 @@ function ZoomDropdown({ zoomPercent, activePreset, onZoomToFit, onZoomToPreset }
 
   return (
     <div ref={dropdownRef} className="relative">
-      {/* Trigger — shows current zoom percentage */}
       <button
         onClick={() => setIsOpen(prev => !prev)}
         className="flex items-center gap-0.5 px-1 py-1 hover:bg-foreground/5 text-[13px] tabular-nums min-w-[4rem] justify-center transition-colors"
@@ -98,7 +96,6 @@ function ZoomDropdown({ zoomPercent, activePreset, onZoomToFit, onZoomToPreset }
         {zoomPercent}%
       </button>
 
-      {/* Menu — absolute positioned, no portal needed */}
       {isOpen && (
         <div
           className={cn(
@@ -107,7 +104,6 @@ function ZoomDropdown({ zoomPercent, activePreset, onZoomToFit, onZoomToPreset }
             "animate-in fade-in-0 zoom-in-95 duration-100",
           )}
         >
-          {/* Zoom to Fit */}
           <button
             type="button"
             onClick={() => { onZoomToFit(); setIsOpen(false) }}
@@ -116,7 +112,6 @@ function ZoomDropdown({ zoomPercent, activePreset, onZoomToFit, onZoomToPreset }
             Zoom to Fit
           </button>
           <div className="h-px bg-foreground/5 my-1" />
-          {/* Preset zoom levels */}
           {ZOOM_PRESETS.map(preset => (
             <button
               key={preset}
@@ -158,125 +153,271 @@ export function MermaidPreviewOverlay({
   const [scale, setScale] = useState(1)
   const [translate, setTranslate] = useState({ x: 0, y: 0 })
   const [isDragging, setIsDragging] = useState(false)
-  // Controls CSS transition on the SVG container. Enabled for discrete actions
-  // (buttons, presets, keyboard, reset) for smooth animation. Disabled for
-  // continuous actions (wheel, trackpad, drag) to avoid input lag.
   const [isAnimating, setIsAnimating] = useState(false)
 
-  // Refs for drag tracking — used in window event handlers to avoid stale closures.
+  // Refs for latest state — used in imperative event handlers to avoid stale closures.
+  const scaleRef = useRef(1)
+  const translateRef = useRef({ x: 0, y: 0 })
   const isDraggingRef = useRef(false)
   const dragStartRef = useRef({ x: 0, y: 0 })
   const translateAtDragStartRef = useRef({ x: 0, y: 0 })
-  const containerRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement | null>(null)
 
-  // Reset zoom/pan state when overlay opens
+  // Keep refs in sync
+  useEffect(() => { scaleRef.current = scale }, [scale])
+  useEffect(() => { translateRef.current = translate }, [translate])
+
+  // ── Zoom-to-fit calculation ────────────────────────────────────────────
+
+  const calcFitScale = useCallback((container?: HTMLDivElement | null) => {
+    const el = container || containerRef.current
+    if (!el) return null
+
+    const dims = parseSvgDimensions(svg)
+    if (!dims) return null
+
+    const rect = el.getBoundingClientRect()
+    if (rect.width === 0 || rect.height === 0) return null
+    const scaleX = (rect.width * 0.9) / dims.width
+    const scaleY = (rect.height * 0.9) / dims.height
+    return clampScale(Math.min(scaleX, scaleY, MAX_SCALE))
+  }, [svg])
+
+  // Auto zoom-to-fit when overlay opens
   useEffect(() => {
-    if (isOpen) {
-      setScale(1)
+    if (!isOpen) return
+    // Delay to ensure the Portal/Dialog has mounted the container
+    const timer = setTimeout(() => {
+      const fitScale = calcFitScale()
+      if (fitScale !== null) {
+        setScale(fitScale)
+      } else {
+        setScale(1)
+      }
       setTranslate({ x: 0, y: 0 })
-    }
-  }, [isOpen])
+    }, 50)
+    return () => clearTimeout(timer)
+  }, [isOpen, calcFitScale])
 
   // ── Zoom actions ─────────────────────────────────────────────────────
 
   const handleReset = useCallback(() => {
     setIsAnimating(true)
-    setScale(1)
+    const fitScale = calcFitScale()
+    setScale(fitScale ?? 1)
     setTranslate({ x: 0, y: 0 })
-  }, [])
+  }, [calcFitScale])
 
-  /** Zoom in or out by one step (25%), keeping the viewport center fixed. */
   const zoomByStep = useCallback((direction: 'in' | 'out') => {
     setIsAnimating(true)
     setScale(prev => {
       const factor = direction === 'in' ? ZOOM_STEP_FACTOR : 1 / ZOOM_STEP_FACTOR
-      const next = Math.min(MAX_SCALE, Math.max(MIN_SCALE, prev * factor))
+      const next = clampScale(prev * factor)
       const ratio = next / prev
-      // Zoom toward viewport center (cx=0, cy=0 in container-center coords).
-      // Formula simplifies to: newTranslate = oldTranslate * ratio
       setTranslate(t => ({ x: t.x * ratio, y: t.y * ratio }))
       return next
     })
   }, [])
 
-  /** Jump to a specific scale, centering the view. */
   const zoomToPreset = useCallback((preset: number) => {
     setIsAnimating(true)
-    setScale(Math.min(MAX_SCALE, Math.max(MIN_SCALE, preset / 100)))
+    setScale(clampScale(preset / 100))
     setTranslate({ x: 0, y: 0 })
   }, [])
 
-  /** Calculate and apply the scale needed to fit the entire diagram in the viewport. */
   const zoomToFit = useCallback(() => {
-    const container = containerRef.current
-    if (!container) return
-
-    const dims = parseSvgDimensions(svg)
-    if (!dims) {
+    const fitScale = calcFitScale()
+    if (fitScale !== null) {
+      setIsAnimating(true)
+      setScale(fitScale)
+      setTranslate({ x: 0, y: 0 })
+    } else {
       handleReset()
-      return
+    }
+  }, [calcFitScale, handleReset])
+
+  // ── Attach all gesture handlers via callback ref ──────────────────────
+  // This ensures handlers are attached the instant the DOM element mounts,
+  // regardless of Portal/Dialog timing. Cleanup runs when element unmounts.
+  const cleanupRef = useRef<(() => void) | null>(null)
+
+  const setContainerRef = useCallback((node: HTMLDivElement | null) => {
+    // Cleanup previous listeners
+    if (cleanupRef.current) {
+      cleanupRef.current()
+      cleanupRef.current = null
     }
 
-    const rect = container.getBoundingClientRect()
-    // 90% of available space so the diagram doesn't touch the edges
-    const scaleX = (rect.width * 0.9) / dims.width
-    const scaleY = (rect.height * 0.9) / dims.height
-    const fitScale = Math.min(scaleX, scaleY, MAX_SCALE)
+    containerRef.current = node
+    if (!node) return
 
-    setIsAnimating(true)
-    setScale(Math.max(MIN_SCALE, fitScale))
-    setTranslate({ x: 0, y: 0 })
-  }, [svg, handleReset])
-
-  // ── Mousewheel zoom ──────────────────────────────────────────────────
-  // Attached via addEventListener with { passive: false } so we can call
-  // preventDefault() — prevents the overlay's scroll container from scrolling.
-  // Uses updater functions to always read the latest scale/translate.
-  useEffect(() => {
-    const container = containerRef.current
-    if (!container) return
-
+    // ── Wheel zoom (mouse wheel + trackpad pinch via ctrlKey) ──
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault()
       e.stopPropagation()
 
-      const rect = container.getBoundingClientRect()
-      // Cursor position relative to container center
+      const rect = node.getBoundingClientRect()
       const cx = e.clientX - rect.left - rect.width / 2
       const cy = e.clientY - rect.top - rect.height / 2
 
-      // Sensitivity-aware zoom:
-      // - Trackpad pinch gestures fire with ctrlKey=true and small, granular deltaY.
-      //   Use high sensitivity for smooth, proportional zoom.
-      // - Mouse wheel fires with larger deltaY steps (~100 per notch).
-      //   Use lower sensitivity so each notch gives ~15% zoom change.
+      // Trackpad pinch fires with ctrlKey=true and small deltaY
       const isTrackpadPinch = e.ctrlKey
       const sensitivity = isTrackpadPinch ? 0.01 : 0.003
       const factor = Math.pow(2, -e.deltaY * sensitivity)
 
       setScale(prev => {
-        const next = Math.min(MAX_SCALE, Math.max(MIN_SCALE, prev * factor))
+        const next = clampScale(prev * factor)
         const ratio = next / prev
-
-        // Adjust translate so the point under the cursor stays fixed.
-        // Math: screenPos = translate + elementPos * scale
-        // We want the same screenPos (cx,cy) before and after zoom.
         setTranslate(t => ({
           x: cx - ratio * (cx - t.x),
           y: cy - ratio * (cy - t.y),
         }))
-
         return next
       })
     }
 
-    container.addEventListener('wheel', handleWheel, { passive: false })
-    return () => container.removeEventListener('wheel', handleWheel)
+    // ── Mouse drag for pan ──
+    const handleMouseDown = (e: MouseEvent) => {
+      if (e.button !== 0) return
+      e.preventDefault()
+      isDraggingRef.current = true
+      setIsDragging(true)
+      dragStartRef.current = { x: e.clientX, y: e.clientY }
+      translateAtDragStartRef.current = { ...translateRef.current }
+    }
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDraggingRef.current) return
+      setTranslate({
+        x: translateAtDragStartRef.current.x + (e.clientX - dragStartRef.current.x),
+        y: translateAtDragStartRef.current.y + (e.clientY - dragStartRef.current.y),
+      })
+    }
+
+    const handleMouseUp = () => {
+      if (isDraggingRef.current) {
+        isDraggingRef.current = false
+        setIsDragging(false)
+      }
+    }
+
+    // ── Double-click to reset ──
+    const handleDblClick = () => {
+      setIsAnimating(true)
+      // Use timeout to read latest container size
+      setTimeout(() => {
+        const dims = parseSvgDimensions(svg)
+        if (dims && node) {
+          const rect = node.getBoundingClientRect()
+          const scaleX = (rect.width * 0.9) / dims.width
+          const scaleY = (rect.height * 0.9) / dims.height
+          setScale(clampScale(Math.min(scaleX, scaleY, MAX_SCALE)))
+        } else {
+          setScale(1)
+        }
+        setTranslate({ x: 0, y: 0 })
+      }, 0)
+    }
+
+    // ── Touch pinch zoom + pan ──
+    let touchStartDist = 0
+    let touchStartScale = 1
+    let touchStartMid = { x: 0, y: 0 }
+    let touchStartTranslate = { x: 0, y: 0 }
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        e.preventDefault()
+        const t1 = e.touches[0]!
+        const t2 = e.touches[1]!
+        const dx = t1.clientX - t2.clientX
+        const dy = t1.clientY - t2.clientY
+        touchStartDist = Math.sqrt(dx * dx + dy * dy)
+        touchStartScale = scaleRef.current
+        touchStartMid = { x: (t1.clientX + t2.clientX) / 2, y: (t1.clientY + t2.clientY) / 2 }
+        touchStartTranslate = { ...translateRef.current }
+      } else if (e.touches.length === 1) {
+        isDraggingRef.current = true
+        setIsDragging(true)
+        dragStartRef.current = { x: e.touches[0]!.clientX, y: e.touches[0]!.clientY }
+        translateAtDragStartRef.current = { ...translateRef.current }
+      }
+    }
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        e.preventDefault()
+        const t1 = e.touches[0]!
+        const t2 = e.touches[1]!
+        const dx = t1.clientX - t2.clientX
+        const dy = t1.clientY - t2.clientY
+        const currentDist = Math.sqrt(dx * dx + dy * dy)
+        const currentMid = { x: (t1.clientX + t2.clientX) / 2, y: (t1.clientY + t2.clientY) / 2 }
+
+        const ratio = currentDist / touchStartDist
+        const newScale = clampScale(touchStartScale * ratio)
+        const scaleRatio = newScale / touchStartScale
+
+        const rect = node.getBoundingClientRect()
+        const cx = touchStartMid.x - rect.left - rect.width / 2
+        const cy = touchStartMid.y - rect.top - rect.height / 2
+        const panDx = currentMid.x - touchStartMid.x
+        const panDy = currentMid.y - touchStartMid.y
+
+        setScale(newScale)
+        setTranslate({
+          x: cx - scaleRatio * (cx - touchStartTranslate.x) + panDx,
+          y: cy - scaleRatio * (cy - touchStartTranslate.y) + panDy,
+        })
+      } else if (e.touches.length === 1 && isDraggingRef.current) {
+        setTranslate({
+          x: translateAtDragStartRef.current.x + (e.touches[0]!.clientX - dragStartRef.current.x),
+          y: translateAtDragStartRef.current.y + (e.touches[0]!.clientY - dragStartRef.current.y),
+        })
+      }
+    }
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length === 0 && isDraggingRef.current) {
+        isDraggingRef.current = false
+        setIsDragging(false)
+      }
+    }
+
+    // Attach all listeners
+    node.addEventListener('wheel', handleWheel, { passive: false })
+    node.addEventListener('mousedown', handleMouseDown)
+    node.addEventListener('dblclick', handleDblClick)
+    node.addEventListener('touchstart', handleTouchStart, { passive: false })
+    node.addEventListener('touchmove', handleTouchMove, { passive: false })
+    node.addEventListener('touchend', handleTouchEnd)
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+
+    // Store cleanup function
+    cleanupRef.current = () => {
+      node.removeEventListener('wheel', handleWheel)
+      node.removeEventListener('mousedown', handleMouseDown)
+      node.removeEventListener('dblclick', handleDblClick)
+      node.removeEventListener('touchstart', handleTouchStart)
+      node.removeEventListener('touchmove', handleTouchMove)
+      node.removeEventListener('touchend', handleTouchEnd)
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [svg])
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (cleanupRef.current) {
+        cleanupRef.current()
+        cleanupRef.current = null
+      }
+    }
   }, [])
 
   // ── Keyboard shortcuts ───────────────────────────────────────────────
-  // Cmd/Ctrl + = (zoom in), Cmd/Ctrl + - (zoom out), Cmd/Ctrl + 0 (reset)
-  // Only active when overlay is open. preventDefault() blocks browser zoom.
   useEffect(() => {
     if (!isOpen) return
 
@@ -300,62 +441,13 @@ export function MermaidPreviewOverlay({
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isOpen, zoomByStep, handleReset])
 
-  // ── Click-drag pan ───────────────────────────────────────────────────
-  // Mousedown on the container starts tracking. Mousemove/mouseup on window
-  // so dragging outside the container still works.
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (e.button !== 0) return // left click only
-    e.preventDefault()
-    isDraggingRef.current = true
-    setIsDragging(true)
-    dragStartRef.current = { x: e.clientX, y: e.clientY }
-    // Read current translate via updater function (always latest value)
-    setTranslate(t => {
-      translateAtDragStartRef.current = { x: t.x, y: t.y }
-      return t // no change
-    })
-  }
-
-  // Global mousemove/mouseup listeners for drag tracking
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isDraggingRef.current) return
-      setTranslate({
-        x: translateAtDragStartRef.current.x + (e.clientX - dragStartRef.current.x),
-        y: translateAtDragStartRef.current.y + (e.clientY - dragStartRef.current.y),
-      })
-    }
-
-    const handleMouseUp = () => {
-      if (isDraggingRef.current) {
-        isDraggingRef.current = false
-        setIsDragging(false)
-      }
-    }
-
-    window.addEventListener('mousemove', handleMouseMove)
-    window.addEventListener('mouseup', handleMouseUp)
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove)
-      window.removeEventListener('mouseup', handleMouseUp)
-    }
-  }, [])
-
-  // ── Double-click to reset ────────────────────────────────────────────
-  const handleDoubleClick = useCallback(() => {
-    handleReset()
-  }, [handleReset])
-
   // ── Header actions ───────────────────────────────────────────────────
 
-  const isDefaultView = scale === 1 && translate.x === 0 && translate.y === 0
+  const fitScale = calcFitScale()
+  const isDefaultView = (fitScale !== null ? scale === fitScale : scale === 1) && translate.x === 0 && translate.y === 0
   const zoomPercent = Math.round(scale * 100)
-
-  // Check if current zoom matches a preset (for highlight in dropdown)
   const activePreset = ZOOM_PRESETS.find(p => p === zoomPercent)
 
-  // Shared style for header control buttons — matches the close button (PreviewHeader)
   const controlBtnClass = cn(
     'p-1.5 rounded-[6px] bg-background shadow-minimal cursor-pointer',
     'opacity-70 hover:opacity-100 transition-opacity',
@@ -365,9 +457,7 @@ export function MermaidPreviewOverlay({
 
   const headerActions = (
     <div className="flex items-center gap-1.5">
-      {/* ── Zoom stepper: [−] [▾ pct%] [+] ── */}
       <div className="flex items-center gap-px bg-background shadow-minimal rounded-[6px]">
-        {/* Zoom out button */}
         <button
           onClick={() => zoomByStep('out')}
           disabled={scale <= MIN_SCALE}
@@ -381,7 +471,6 @@ export function MermaidPreviewOverlay({
           <Minus className="w-3.5 h-3.5" />
         </button>
 
-        {/* Zoom dropdown — inline (no portal) to work inside Radix Dialog overlays */}
         <ZoomDropdown
           zoomPercent={zoomPercent}
           activePreset={activePreset}
@@ -389,7 +478,6 @@ export function MermaidPreviewOverlay({
           onZoomToPreset={zoomToPreset}
         />
 
-        {/* Zoom in button */}
         <button
           onClick={() => zoomByStep('in')}
           disabled={scale >= MAX_SCALE}
@@ -404,7 +492,6 @@ export function MermaidPreviewOverlay({
         </button>
       </div>
 
-      {/* Reset button */}
       <button
         onClick={handleReset}
         disabled={isDefaultView}
@@ -414,7 +501,6 @@ export function MermaidPreviewOverlay({
         <RotateCcw className="w-3.5 h-3.5" />
       </button>
 
-      {/* Copy code button */}
       <CopyButton content={code} title="Copy code" className="bg-background shadow-minimal opacity-70 hover:opacity-100" />
     </div>
   )
@@ -433,28 +519,18 @@ export function MermaidPreviewOverlay({
       title="Mermaid Diagram"
       headerActions={headerActions}
     >
-      {/* Zoom/pan viewport — extends edge-to-edge, going under the floating header.
-          Negative margins cancel the scroll container's padding from FullscreenOverlayBase
-          (paddingTop = HEADER_HEIGHT 48 + FADE_SIZE 24 = 72, paddingBottom = FADE_SIZE 24).
-          The CSS fade mask on the parent creates a smooth fade where content goes behind the header.
-          Double-click resets to 100% centered. */}
       <div
-        ref={containerRef}
+        ref={setContainerRef}
         className="flex items-center justify-center select-none"
-        onMouseDown={handleMouseDown}
-        onDoubleClick={handleDoubleClick}
         style={{
-          marginTop: -72,   // -(HEADER_HEIGHT + FADE_SIZE) — extend under header
-          marginBottom: -24, // -FADE_SIZE — extend to bottom edge
+          marginTop: -72,
+          marginBottom: -24,
           height: '100vh',
           cursor: isDragging ? 'grabbing' : 'grab',
           overflow: 'hidden',
+          touchAction: 'none',
         }}
       >
-        {/* SVG container — CSS transform handles zoom and pan.
-            transformOrigin is center so scale expands equally in all directions.
-            Transition is only enabled for discrete actions (buttons, presets, etc.)
-            and cleared on transitionend so continuous input stays lag-free. */}
         <div
           dangerouslySetInnerHTML={{ __html: svg }}
           onTransitionEnd={() => setIsAnimating(false)}
