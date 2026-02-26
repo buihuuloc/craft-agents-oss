@@ -68,10 +68,15 @@ export {
   useCollapsibleMarkdown,
   MarkdownDatatableBlock,
   MarkdownSpreadsheetBlock,
+  MarkdownHtmlBlock,
+  MarkdownMermaidBlock,
+  MarkdownPdfBlock,
   type MarkdownProps,
   type RenderMode,
   type MarkdownDatatableBlockProps,
   type MarkdownSpreadsheetBlockProps,
+  type MarkdownHtmlBlockProps,
+  type MarkdownPdfBlockProps,
 } from './components/markdown'
 
 // UI primitives

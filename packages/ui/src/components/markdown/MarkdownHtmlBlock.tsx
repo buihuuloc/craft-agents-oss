@@ -35,6 +35,7 @@ import { CodeBlock } from './CodeBlock'
 import { HTMLPreviewOverlay } from '../overlay/HTMLPreviewOverlay'
 import { ItemNavigator } from '../overlay/ItemNavigator'
 import { usePlatform } from '../../context/PlatformContext'
+import { ArtifactCompactCard } from './ArtifactCompactCard'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -93,7 +94,7 @@ export interface MarkdownHtmlBlockProps {
 }
 
 export function MarkdownHtmlBlock({ code, className }: MarkdownHtmlBlockProps) {
-  const { onReadFile } = usePlatform()
+  const { onReadFile, onOpenArtifactPreview } = usePlatform()
 
   // Parse the JSON spec — supports single src or items array
   const spec = React.useMemo<HtmlPreviewSpec | null>(() => {
@@ -173,6 +174,20 @@ export function MarkdownHtmlBlock({ code, className }: MarkdownHtmlBlockProps) {
   // Invalid spec → fall back to code block
   if (!spec || items.length === 0) {
     return <CodeBlock code={code} language="json" mode="full" className={className} />
+  }
+
+  // Compact card mode: when onOpenArtifactPreview is available, render a clickable card
+  // that opens the full preview in the ContextPanel instead of inline
+  if (onOpenArtifactPreview) {
+    return (
+      <ArtifactCompactCard
+        title={spec.title || 'HTML Preview'}
+        typeLabel="HTML"
+        icon={Globe}
+        onClick={() => onOpenArtifactPreview({ contentType: 'html', title: spec.title || 'HTML Preview', code })}
+        className={className}
+      />
+    )
   }
 
   const fallback = <CodeBlock code={code} language="json" mode="full" className={className} />

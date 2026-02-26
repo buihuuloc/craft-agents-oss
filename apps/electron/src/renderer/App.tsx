@@ -41,6 +41,7 @@ import {
 } from '@/atoms/sessions'
 import { sourcesAtom } from '@/atoms/sources'
 import { skillsAtom } from '@/atoms/skills'
+import { activeArtifactAtom } from '@/atoms/artifact'
 import { extractBadges } from '@/lib/mentions'
 import { getDefaultStore } from 'jotai'
 import {
@@ -237,6 +238,7 @@ export default function App() {
   const addSession = useSetAtom(addSessionAtom)
   const removeSession = useSetAtom(removeSessionAtom)
   const updateSessionDirect = useSetAtom(updateSessionAtom)
+  const setActiveArtifact = useSetAtom(activeArtifactAtom)
   const store = useStore()
 
   // Helper to update a session by ID with partial fields
@@ -311,6 +313,20 @@ export default function App() {
 
   // Compute if app is fully ready (all data loaded)
   const isFullyReady = appState === 'ready' && sessionsLoaded
+
+  // Safety timeout: force sessionsLoaded after 3s to prevent stuck splash
+  // (can happen after Vite HMR when IPC calls stall)
+  useEffect(() => {
+    if (appState === 'ready' && !sessionsLoaded) {
+      const timeout = setTimeout(() => {
+        if (!sessionsLoaded) {
+          console.warn('[App] Sessions loading timed out, forcing ready state')
+          setSessionsLoaded(true)
+        }
+      }, 3000)
+      return () => clearTimeout(timeout)
+    }
+  }, [appState, sessionsLoaded])
 
   // Trigger splash exit animation when fully ready
   useEffect(() => {
@@ -1427,7 +1443,14 @@ export default function App() {
     onSetTrafficLightsVisible: (visible: boolean) => {
       window.electronAPI.setTrafficLightsVisible(visible)
     },
-  }), [handleOpenFile, handleOpenUrl, linkInterceptor.openFileExternal])
+    // Open artifact preview in the ContextPanel (side panel)
+    onOpenArtifactPreview: (preview: { contentType: 'html' | 'mermaid' | 'pdf'; title: string; code: string }) => {
+      setActiveArtifact({
+        kind: 'content-preview',
+        ...preview,
+      })
+    },
+  }), [handleOpenFile, handleOpenUrl, linkInterceptor.openFileExternal, setActiveArtifact])
 
   // Loading state - show splash screen
   if (appState === 'loading') {

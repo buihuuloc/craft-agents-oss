@@ -95,6 +95,13 @@ export interface PlatformActions {
   onRevealInFinder?: (path: string) => void
 
   /**
+   * Open an artifact preview in the side panel instead of rendering inline.
+   * When provided, markdown content blocks (html-preview, mermaid, pdf-preview)
+   * render as compact clickable cards that call this to open in the ContextPanel.
+   */
+  onOpenArtifactPreview?: (preview: { contentType: 'html' | 'mermaid' | 'pdf'; title: string; code: string }) => void
+
+  /**
    * Show/hide macOS traffic light buttons (close/minimize/maximize).
    * Used to hide them when fullscreen overlays are open to prevent accidental clicks.
    * No-op on non-macOS platforms or in web viewer.

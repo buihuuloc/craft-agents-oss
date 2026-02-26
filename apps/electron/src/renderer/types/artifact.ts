@@ -10,6 +10,7 @@ export type ArtifactType =
   | { kind: 'session-meta'; sessionId: string }
   | { kind: 'settings-preview'; settingKey: string; currentValue: unknown; newValue: unknown }
   | { kind: 'multi-field-config'; title: string; fields: ConfigField[] }
+  | { kind: 'content-preview'; contentType: 'html' | 'mermaid' | 'pdf'; title: string; code: string }
 
 export interface ConfigField {
   key: string

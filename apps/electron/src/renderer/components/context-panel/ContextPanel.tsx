@@ -2,16 +2,18 @@
  * ContextPanel - Displays artifacts in the contextual right column.
  *
  * Routes artifact types to card components (SourceCard, SkillDetailCard)
- * or placeholder renderers for other artifact kinds.
+ * or full content previews (HTML, Mermaid, PDF) for chat artifacts.
  */
 
 import { useAtom } from 'jotai'
-import { X } from 'lucide-react'
+import { X, RotateCw } from 'lucide-react'
+import { useState, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { activeArtifactAtom } from '@/atoms/artifact'
 import { SourceCard } from './SourceCard'
 import { SkillDetailCard } from './SkillDetailCard'
+import { ContentPreviewRenderer } from './ContentPreviewRenderer'
 import type { ArtifactType } from '@/types/artifact'
 
 function getTitle(artifact: ArtifactType): string {
@@ -26,10 +28,21 @@ function getTitle(artifact: ArtifactType): string {
       return 'Settings'
     case 'multi-field-config':
       return artifact.title
+    case 'content-preview':
+      return artifact.title
   }
 }
 
-function ArtifactRenderer({ artifact }: { artifact: ArtifactType }) {
+function getTypeLabel(artifact: ArtifactType): string | null {
+  if (artifact.kind !== 'content-preview') return null
+  switch (artifact.contentType) {
+    case 'html': return 'HTML'
+    case 'mermaid': return 'Diagram'
+    case 'pdf': return 'PDF'
+  }
+}
+
+function ArtifactRenderer({ artifact, refreshKey }: { artifact: ArtifactType; refreshKey: number }) {
   switch (artifact.kind) {
     case 'source':
       return <SourceCard sourceSlug={artifact.sourceSlug} />
@@ -41,29 +54,57 @@ function ArtifactRenderer({ artifact }: { artifact: ArtifactType }) {
       return <div className="text-sm text-foreground-50">Settings preview: {artifact.settingKey}</div>
     case 'multi-field-config':
       return <div className="text-sm text-foreground-50">Config: {artifact.title}</div>
+    case 'content-preview':
+      return <ContentPreviewRenderer key={refreshKey} contentType={artifact.contentType} code={artifact.code} />
   }
 }
 
 export function ContextPanel() {
   const [artifact, setArtifact] = useAtom(activeArtifactAtom)
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  const handleRefresh = useCallback(() => {
+    setRefreshKey(k => k + 1)
+  }, [])
 
   if (!artifact) return null
 
+  const isContentPreview = artifact.kind === 'content-preview'
+  const typeLabel = getTypeLabel(artifact)
+
   return (
-    <div className="flex flex-col h-full">
-      {/* Header with title and close button */}
-      <div className="flex items-center justify-between px-4 h-11 border-b border-foreground-90 shrink-0">
-        <span className="text-sm font-medium">{getTitle(artifact)}</span>
-        <Button variant="ghost" size="icon" onClick={() => setArtifact(null)}>
-          <X className="h-4 w-4" />
-        </Button>
+    <div className="flex flex-col h-full bg-background">
+      {/* Header — title + type on left, action buttons on right */}
+      <div className="flex items-center gap-2 px-4 h-11 border-b border-foreground/[0.06] shrink-0">
+        <div className="flex-1 min-w-0 flex items-center gap-2">
+          <span className="text-sm font-medium truncate">{getTitle(artifact)}</span>
+          {typeLabel && (
+            <span className="text-xs text-muted-foreground shrink-0">{typeLabel}</span>
+          )}
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          {isContentPreview && (
+            <Button variant="ghost" size="icon" onClick={handleRefresh} title="Refresh">
+              <RotateCw className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          <Button variant="ghost" size="icon" onClick={() => setArtifact(null)} title="Close">
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
       {/* Content */}
-      <ScrollArea className="flex-1">
-        <div className="p-4">
-          <ArtifactRenderer artifact={artifact} />
+      {isContentPreview ? (
+        <div className="flex-1 min-h-0 overflow-auto">
+          <ArtifactRenderer artifact={artifact} refreshKey={refreshKey} />
         </div>
-      </ScrollArea>
+      ) : (
+        <ScrollArea className="flex-1">
+          <div className="p-4">
+            <ArtifactRenderer artifact={artifact} refreshKey={refreshKey} />
+          </div>
+        </ScrollArea>
+      )}
     </div>
   )
 }

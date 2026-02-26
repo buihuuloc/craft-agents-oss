@@ -44,6 +44,7 @@ import type { RichTextInputHandle } from '@/components/ui/rich-text-input'
 import type { ChatDisplayHandle } from './ChatDisplay'
 import { clearSourceIconCaches } from '@/lib/icon-cache'
 
+import * as storage from '@/lib/local-storage'
 import { MinimalTopBar } from './MinimalTopBar'
 import { SessionSidebar } from './SessionSidebar'
 import { CommandPalette } from '@/components/command-palette/CommandPalette'
@@ -101,9 +102,54 @@ function ChatDominantShellContent({
   const { navigate } = useNavigation()
 
   // -------------------------------------------------------------------------
+  // Sidebar visibility (persisted to localStorage)
+  // -------------------------------------------------------------------------
+  const [isSidebarVisible, setIsSidebarVisible] = useState(() => {
+    return storage.get(storage.KEYS.sidebarVisible, true)
+  })
+
+  useEffect(() => {
+    storage.set(storage.KEYS.sidebarVisible, isSidebarVisible)
+  }, [isSidebarVisible])
+
+  // Listen for menu-driven sidebar toggle (Electron menu → View → Toggle Sidebar)
+  useEffect(() => {
+    const cleanup = window.electronAPI.onMenuToggleSidebar?.(() => {
+      setIsSidebarVisible(v => !v)
+    })
+    return cleanup
+  }, [])
+
+  const toggleSidebar = useCallback(() => {
+    setIsSidebarVisible(v => !v)
+  }, [])
+
+  // Auto-hide sidebar when artifact panel opens, restore when closed
+  const sidebarBeforeArtifactRef = useRef<boolean | null>(null)
+  useEffect(() => {
+    if (artifact) {
+      // Panel opening — remember current sidebar state and hide it
+      if (sidebarBeforeArtifactRef.current === null) {
+        sidebarBeforeArtifactRef.current = isSidebarVisible
+      }
+      setIsSidebarVisible(false)
+    } else {
+      // Panel closing — restore sidebar to previous state
+      if (sidebarBeforeArtifactRef.current !== null) {
+        setIsSidebarVisible(sidebarBeforeArtifactRef.current)
+        sidebarBeforeArtifactRef.current = null
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [artifact])
+
+  // -------------------------------------------------------------------------
   // Global keyboard shortcuts (using centralized action registry)
   // Actions are defined in @/actions/definitions.ts
   // -------------------------------------------------------------------------
+
+  // Cmd+B / Ctrl+B → toggle sidebar
+  useAction('view.toggleSidebar', toggleSidebar)
 
   // Cmd+K / Ctrl+K → toggle command palette
   useAction('app.commandPalette', () => {
@@ -294,16 +340,31 @@ function ChatDominantShellContent({
         <div className="titlebar-drag-region fixed top-0 left-0 right-0 h-[50px] z-titlebar" />
 
         <div className="flex flex-1 min-h-0">
-          {/* Session sidebar */}
-          <SessionSidebar
-            onNewSession={() => navigate(routes.action.newSession())}
-            onCommandPaletteOpen={() => setCommandPaletteOpen(true)}
-          />
+          {/* Session sidebar (animated show/hide) */}
+          <AnimatePresence initial={false}>
+            {isSidebarVisible && (
+              <motion.div
+                key="session-sidebar"
+                initial={{ width: 0, opacity: 0 }}
+                animate={{ width: 220, opacity: 1 }}
+                exit={{ width: 0, opacity: 0 }}
+                transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+                className="shrink-0 overflow-hidden"
+              >
+                <SessionSidebar
+                  onNewSession={() => navigate(routes.action.newSession())}
+                  onCommandPaletteOpen={() => setCommandPaletteOpen(true)}
+                  onToggleSidebar={toggleSidebar}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Main content area (top bar + content) */}
           <div className="flex flex-col flex-1 min-w-0">
             <MinimalTopBar
               onCommandPaletteOpen={() => setCommandPaletteOpen(true)}
+              isSidebarVisible={isSidebarVisible}
               minimal={isHomeScreen}
             />
 
@@ -316,11 +377,11 @@ function ChatDominantShellContent({
                 {artifact && (
                   <motion.div
                     key="context-panel"
-                    initial={{ width: 0, opacity: 0 }}
-                    animate={{ width: 480, opacity: 1 }}
-                    exit={{ width: 0, opacity: 0 }}
+                    initial={{ flex: 0, opacity: 0 }}
+                    animate={{ flex: 1, opacity: 1 }}
+                    exit={{ flex: 0, opacity: 0 }}
                     transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-                    className="border-l border-foreground-90 overflow-hidden shrink-0"
+                    className="border-l border-foreground/[0.06] overflow-hidden min-w-0"
                   >
                     <ContextPanel />
                   </motion.div>

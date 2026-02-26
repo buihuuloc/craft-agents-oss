@@ -28,11 +28,13 @@ import { HeaderMenu } from '@/components/ui/HeaderMenu'
 export interface MinimalTopBarProps {
   /** Callback to open the command palette */
   onCommandPaletteOpen: () => void
+  /** Whether the sidebar is currently visible (affects macOS traffic light padding) */
+  isSidebarVisible?: boolean
   /** When true (home screen): only show overflow menu and new session button, transparent */
   minimal?: boolean
 }
 
-export function MinimalTopBar({ onCommandPaletteOpen, minimal }: MinimalTopBarProps) {
+export function MinimalTopBar({ onCommandPaletteOpen, isSidebarVisible, minimal }: MinimalTopBarProps) {
   const { navigate, canGoBack, goBack } = useNavigation()
 
   const handleNewSession = () => {
@@ -43,22 +45,24 @@ export function MinimalTopBar({ onCommandPaletteOpen, minimal }: MinimalTopBarPr
     <div
       className={cn(
         'flex shrink-0 items-center h-11 bg-transparent titlebar-drag-region',
-        'pl-3 pr-2'
+        // Must be above the fixed titlebar drag overlay (z-titlebar: 40) so buttons are clickable
+        'relative z-[var(--z-panel)]',
+        // When sidebar is hidden on macOS, add left padding for traffic lights
+        isMac && !isSidebarVisible ? 'pl-[76px]' : 'pl-3',
+        'pr-2'
       )}
     >
       {/* Left side */}
-      {!minimal && (
-        <div className="flex items-center gap-1 titlebar-no-drag">
-          {/* Back button - only visible when history allows going back */}
-          {canGoBack && (
-            <HeaderIconButton
-              icon={<ChevronLeft className="h-4 w-4" />}
-              tooltip="Go back"
-              onClick={goBack}
-            />
-          )}
-        </div>
-      )}
+      <div className="flex items-center gap-1 titlebar-no-drag">
+        {/* Back button - only visible when history allows going back */}
+        {!minimal && canGoBack && (
+          <HeaderIconButton
+            icon={<ChevronLeft className="h-4 w-4" />}
+            tooltip="Go back"
+            onClick={goBack}
+          />
+        )}
+      </div>
 
       {/* Spacer */}
       <div className="flex-1" />
