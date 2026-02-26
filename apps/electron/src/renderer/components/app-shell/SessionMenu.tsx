@@ -9,7 +9,6 @@
  * primitives, allowing the same component to work in both scenarios.
  *
  * Provides consistent session actions:
- * - Share / Shared submenu
  * - Status submenu
  * - Flag/Unflag
  * - Mark as Unread
@@ -30,10 +29,7 @@ import {
   MailOpen,
   FolderOpen,
   Copy,
-  Link2Off,
   AppWindow,
-  CloudUpload,
-  Globe,
   RefreshCw,
   Tag,
 } from 'lucide-react'
@@ -54,8 +50,6 @@ export interface SessionMenuProps {
   isFlagged: boolean
   /** Whether session is archived */
   isArchived?: boolean
-  /** Shared URL if session is shared */
-  sharedUrl?: string | null
   /** Whether session has messages */
   hasMessages: boolean
   /** Whether session has unread messages */
@@ -91,7 +85,6 @@ export function SessionMenu({
   sessionName,
   isFlagged,
   isArchived = false,
-  sharedUrl,
   hasMessages,
   hasUnreadMessages,
   currentSessionStatus,
@@ -109,54 +102,6 @@ export function SessionMenu({
   onOpenInNewWindow,
   onDelete,
 }: SessionMenuProps) {
-  // Share handlers
-  const handleShare = async () => {
-    const result = await window.electronAPI.sessionCommand(sessionId, { type: 'shareToViewer' }) as { success: boolean; url?: string; error?: string } | undefined
-    if (result?.success && result.url) {
-      await navigator.clipboard.writeText(result.url)
-      toast.success('Link copied to clipboard', {
-        description: result.url,
-        action: {
-          label: 'Open',
-          onClick: () => window.electronAPI.openUrl(result.url!),
-        },
-      })
-    } else {
-      toast.error('Failed to share', { description: result?.error || 'Unknown error' })
-    }
-  }
-
-  const handleOpenInBrowser = () => {
-    if (sharedUrl) window.electronAPI.openUrl(sharedUrl)
-  }
-
-  const handleCopyLink = async () => {
-    if (sharedUrl) {
-      await navigator.clipboard.writeText(sharedUrl)
-      toast.success('Link copied to clipboard')
-    }
-  }
-
-  const handleUpdateShare = async () => {
-    const result = await window.electronAPI.sessionCommand(sessionId, { type: 'updateShare' })
-    if (result && 'success' in result && result.success) {
-      toast.success('Share updated')
-    } else {
-      const errorMsg = result && 'error' in result ? result.error : undefined
-      toast.error('Failed to update share', { description: errorMsg })
-    }
-  }
-
-  const handleRevokeShare = async () => {
-    const result = await window.electronAPI.sessionCommand(sessionId, { type: 'revokeShare' })
-    if (result && 'success' in result && result.success) {
-      toast.success('Sharing stopped')
-    } else {
-      const errorMsg = result && 'error' in result ? result.error : undefined
-      toast.error('Failed to stop sharing', { description: errorMsg })
-    }
-  }
-
   const handleShowInFinder = () => {
     window.electronAPI.sessionCommand(sessionId, { type: 'showInFinder' })
   }
@@ -203,40 +148,6 @@ export function SessionMenu({
 
   return (
     <>
-      {/* Share/Shared based on shared state */}
-      {!sharedUrl ? (
-        <MenuItem onClick={handleShare}>
-          <CloudUpload className="h-3.5 w-3.5" />
-          <span className="flex-1">Share</span>
-        </MenuItem>
-      ) : (
-        <Sub>
-          <SubTrigger className="pr-2">
-            <CloudUpload className="h-3.5 w-3.5" />
-            <span className="flex-1">Shared</span>
-          </SubTrigger>
-          <SubContent>
-            <MenuItem onClick={handleOpenInBrowser}>
-              <Globe className="h-3.5 w-3.5" />
-              <span className="flex-1">Open in Browser</span>
-            </MenuItem>
-            <MenuItem onClick={handleCopyLink}>
-              <Copy className="h-3.5 w-3.5" />
-              <span className="flex-1">Copy Link</span>
-            </MenuItem>
-            <MenuItem onClick={handleUpdateShare}>
-              <RefreshCw className="h-3.5 w-3.5" />
-              <span className="flex-1">Update Share</span>
-            </MenuItem>
-            <MenuItem onClick={handleRevokeShare} variant="destructive">
-              <Link2Off className="h-3.5 w-3.5" />
-              <span className="flex-1">Stop Sharing</span>
-            </MenuItem>
-          </SubContent>
-        </Sub>
-      )}
-      <Separator />
-
       {/* Status submenu - includes all statuses plus Flag/Unflag at the bottom */}
       <Sub>
         <SubTrigger className="pr-2">

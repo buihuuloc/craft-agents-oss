@@ -175,15 +175,6 @@ export interface SessionSearchResult {
 }
 
 /**
- * Result of sharing or revoking a session
- */
-export interface ShareResult {
-  success: boolean
-  url?: string
-  error?: string
-}
-
-/**
  * Result of refreshing/regenerating a session title
  */
 export interface RefreshTitleResult {
@@ -479,8 +470,6 @@ export type SessionEvent =
   | { type: 'sessions_reordered' }
   | { type: 'session_archived_cascade'; sessionId: string; count: number }
   | { type: 'session_deleted_cascade'; sessionId: string; count: number }
-  | { type: 'session_shared'; sessionId: string; sharedUrl: string }
-  | { type: 'session_unshared'; sessionId: string }
   // Auth request events (unified auth flow)
   | { type: 'auth_request'; sessionId: string; message: CoreMessage; request: SharedAuthRequest }
   | { type: 'auth_completed'; sessionId: string; requestId: string; success: boolean; cancelled?: boolean; error?: string }
@@ -527,9 +516,6 @@ export type SessionCommand =
   | { type: 'setLabels'; labels: string[] }
   | { type: 'showInFinder' }
   | { type: 'copyPath' }
-  | { type: 'shareToViewer' }
-  | { type: 'updateShare' }
-  | { type: 'revokeShare' }
   | { type: 'startOAuth'; requestId: string }
   | { type: 'refreshTitle' }
   // Connection selection (locked after first message)
@@ -890,7 +876,7 @@ export interface ElectronAPI {
   respondToCredential(sessionId: string, requestId: string, response: CredentialResponse): Promise<boolean>
 
   // Consolidated session command handler
-  sessionCommand(sessionId: string, command: SessionCommand): Promise<void | ShareResult | RefreshTitleResult | SessionFamily | { count: number }>
+  sessionCommand(sessionId: string, command: SessionCommand): Promise<void | RefreshTitleResult | SessionFamily | { count: number }>
 
   // Pending plan execution (for reload recovery)
   getPendingPlanExecution(sessionId: string): Promise<{ planPath: string; awaitingCompaction: boolean } | null>

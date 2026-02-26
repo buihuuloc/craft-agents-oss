@@ -2,7 +2,7 @@ import { useState, useMemo } from "react"
 import { useActionLabel } from "@/actions"
 import { formatDistanceToNow } from "date-fns"
 import { formatRelativeTime } from "@/lib/format-relative-time"
-import { MoreHorizontal, Flag, Copy, Link2Off, CloudUpload, Globe, RefreshCw } from "lucide-react"
+import { MoreHorizontal, Flag } from "lucide-react"
 import { toast } from "sonner"
 
 import { cn } from "@/lib/utils"
@@ -379,56 +379,6 @@ export function SessionItem({
                     </LabelValuePopover>
                   )
                 })}
-                {item.sharedUrl && (
-                  <DropdownMenu modal={true}>
-                    <DropdownMenuTrigger asChild>
-                      <span
-                        className="shrink-0 h-[18px] w-[18px] flex items-center justify-center rounded bg-foreground/5 text-foreground/70 cursor-pointer hover:bg-foreground/10"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <CloudUpload className="h-[10px] w-[10px]" />
-                      </span>
-                    </DropdownMenuTrigger>
-                    <StyledDropdownMenuContent align="start">
-                      <StyledDropdownMenuItem onClick={() => window.electronAPI.openUrl(item.sharedUrl!)}>
-                        <Globe />
-                        Open in Browser
-                      </StyledDropdownMenuItem>
-                      <StyledDropdownMenuItem onClick={async () => {
-                        await navigator.clipboard.writeText(item.sharedUrl!)
-                        toast.success('Link copied to clipboard')
-                      }}>
-                        <Copy />
-                        Copy Link
-                      </StyledDropdownMenuItem>
-                      <StyledDropdownMenuItem onClick={async () => {
-                        const result = await window.electronAPI.sessionCommand(item.id, { type: 'updateShare' })
-                        if (result && 'success' in result && result.success) {
-                          toast.success('Share updated')
-                        } else {
-                          const errorMsg = result && 'error' in result ? result.error : undefined
-                          toast.error('Failed to update share', { description: errorMsg })
-                        }
-                      }}>
-                        <RefreshCw />
-                        Update Share
-                      </StyledDropdownMenuItem>
-                      <StyledDropdownMenuSeparator />
-                      <StyledDropdownMenuItem onClick={async () => {
-                        const result = await window.electronAPI.sessionCommand(item.id, { type: 'revokeShare' })
-                        if (result && 'success' in result && result.success) {
-                          toast.success('Sharing stopped')
-                        } else {
-                          const errorMsg = result && 'error' in result ? result.error : undefined
-                          toast.error('Failed to stop sharing', { description: errorMsg })
-                        }
-                      }} variant="destructive">
-                        <Link2Off />
-                        Stop Sharing
-                      </StyledDropdownMenuItem>
-                    </StyledDropdownMenuContent>
-                  </DropdownMenu>
-                )}
               </div>
               {/* Timestamp — outside stacking container so it never overlaps badges.
                   shrink-0 keeps it fixed-width; the badges container clips instead. */}
@@ -489,7 +439,7 @@ export function SessionItem({
                     sessionName={getSessionTitle(item)}
                     isFlagged={item.isFlagged ?? false}
                     isArchived={item.isArchived ?? false}
-                    sharedUrl={item.sharedUrl}
+
                     hasMessages={hasMessages(item)}
                     hasUnreadMessages={hasUnreadMessages(item)}
                     currentSessionStatus={currentSessionStatus}
@@ -526,7 +476,6 @@ export function SessionItem({
                 sessionName={getSessionTitle(item)}
                 isFlagged={item.isFlagged ?? false}
                 isArchived={item.isArchived ?? false}
-                sharedUrl={item.sharedUrl}
                 hasMessages={hasMessages(item)}
                 hasUnreadMessages={hasUnreadMessages(item)}
                 currentSessionStatus={currentSessionStatus}
