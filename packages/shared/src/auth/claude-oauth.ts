@@ -55,6 +55,47 @@ function generatePKCE(): { codeVerifier: string; codeChallenge: string } {
 }
 
 /**
+ * Generate the OAuth authorization URL and store PKCE state,
+ * without opening the browser. Use this when you want to handle
+ * the browser/window yourself (e.g., Electron BrowserWindow).
+ *
+ * @param customRedirectUri - Optional custom redirect URI (e.g., localhost callback server).
+ *   When provided, the `code=true` param is omitted so the OAuth server performs a real redirect.
+ */
+export function generateClaudeOAuthUrl(customRedirectUri?: string): string {
+  const state = generateState()
+  const { codeVerifier, codeChallenge } = generatePKCE()
+
+  const now = Date.now()
+  currentOAuthState = {
+    state,
+    codeVerifier,
+    timestamp: now,
+    expiresAt: now + STATE_EXPIRY_MS,
+  }
+
+  const redirectUri = customRedirectUri ?? REDIRECT_URI
+
+  const params = new URLSearchParams({
+    client_id: CLAUDE_CLIENT_ID,
+    response_type: 'code',
+    redirect_uri: redirectUri,
+    scope: OAUTH_SCOPES,
+    code_challenge: codeChallenge,
+    code_challenge_method: 'S256',
+    state,
+  })
+
+  // Only add code=true for the default redirect (manual code copy flow).
+  // For custom redirects (localhost callback), we want a real HTTP redirect.
+  if (!customRedirectUri) {
+    params.set('code', 'true')
+  }
+
+  return `${CLAUDE_AUTH_URL}?${params.toString()}`
+}
+
+/**
  * Start the OAuth flow by generating the login URL and opening the browser
  *
  * Returns the authorization URL that was opened. The user will authenticate
@@ -65,32 +106,7 @@ export async function startClaudeOAuth(
 ): Promise<string> {
   onStatus?.('Generating authentication URL...')
 
-  // Generate secure random values
-  const state = generateState()
-  const { codeVerifier, codeChallenge } = generatePKCE()
-
-  // Store state for later verification
-  const now = Date.now()
-  currentOAuthState = {
-    state,
-    codeVerifier,
-    timestamp: now,
-    expiresAt: now + STATE_EXPIRY_MS,
-  }
-
-  // Build OAuth URL
-  const params = new URLSearchParams({
-    code: 'true',
-    client_id: CLAUDE_CLIENT_ID,
-    response_type: 'code',
-    redirect_uri: REDIRECT_URI,
-    scope: OAUTH_SCOPES,
-    code_challenge: codeChallenge,
-    code_challenge_method: 'S256',
-    state,
-  })
-
-  const authUrl = `${CLAUDE_AUTH_URL}?${params.toString()}`
+  const authUrl = generateClaudeOAuthUrl()
 
   // Open browser
   onStatus?.('Opening browser for authentication...')
@@ -131,7 +147,8 @@ export function clearOAuthState(): void {
  */
 export async function exchangeClaudeCode(
   authorizationCode: string,
-  onStatus?: (message: string) => void
+  onStatus?: (message: string) => void,
+  customRedirectUri?: string,
 ): Promise<ClaudeTokens> {
   // Verify we have valid state
   if (!currentOAuthState) {
@@ -152,7 +169,7 @@ export async function exchangeClaudeCode(
     grant_type: 'authorization_code',
     client_id: CLAUDE_CLIENT_ID,
     code: cleanedCode,
-    redirect_uri: REDIRECT_URI,
+    redirect_uri: customRedirectUri ?? REDIRECT_URI,
     code_verifier: currentOAuthState.codeVerifier,
     state: currentOAuthState.state,
   }

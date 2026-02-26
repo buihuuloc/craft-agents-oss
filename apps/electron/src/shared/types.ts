@@ -675,6 +675,7 @@ export const IPC_CHANNELS = {
   ONBOARDING_START_MCP_OAUTH: 'onboarding:startMcpOAuth',
   // Claude OAuth (two-step flow)
   ONBOARDING_START_CLAUDE_OAUTH: 'onboarding:startClaudeOAuth',
+  ONBOARDING_START_CLAUDE_OAUTH_AUTO: 'onboarding:startClaudeOAuthAuto',
   ONBOARDING_EXCHANGE_CLAUDE_CODE: 'onboarding:exchangeClaudeCode',
   ONBOARDING_HAS_CLAUDE_OAUTH_STATE: 'onboarding:hasClaudeOAuthState',
   ONBOARDING_CLEAR_CLAUDE_OAUTH_STATE: 'onboarding:clearClaudeOAuthState',
@@ -982,6 +983,7 @@ export interface ElectronAPI {
   startWorkspaceMcpOAuth(mcpUrl: string): Promise<OAuthResult & { accessToken?: string; clientId?: string }>
   // Claude OAuth (two-step flow)
   startClaudeOAuth(): Promise<{ success: boolean; authUrl?: string; error?: string }>
+  startClaudeOAuthAuto(connectionSlug: string): Promise<ClaudeOAuthResult>
   exchangeClaudeCode(code: string, connectionSlug: string): Promise<ClaudeOAuthResult>
   hasClaudeOAuthState(): Promise<boolean>
   clearClaudeOAuthState(): Promise<{ success: boolean }>

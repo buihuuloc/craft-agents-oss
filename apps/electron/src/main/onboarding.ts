@@ -7,7 +7,8 @@ import { ipcMain } from 'electron'
 import { mainLog } from './logger'
 import { getAuthState, getSetupNeeds } from '@craft-agent/shared/auth'
 import { getCredentialManager } from '@craft-agent/shared/credentials'
-import { CraftOAuth, startClaudeOAuth, exchangeClaudeCode, hasValidOAuthState, clearOAuthState } from '@craft-agent/shared/auth'
+import { CraftOAuth, startClaudeOAuth, generateClaudeOAuthUrl, exchangeClaudeCode, createCallbackServer, hasValidOAuthState, clearOAuthState } from '@craft-agent/shared/auth'
+import { openUrl } from '@craft-agent/shared/utils'
 import { validateMcpConnection } from '@craft-agent/shared/mcp'
 import { IPC_CHANNELS } from '../shared/types'
 import type { SessionManager } from './sessions'
@@ -84,6 +85,77 @@ export function registerOnboardingHandlers(sessionManager: SessionManager): void
       const message = error instanceof Error ? error.message : 'Unknown error'
       mainLog.error('[Onboarding] Start Claude OAuth error:', message)
       return { success: false, error: message }
+    }
+  })
+
+  // Start Claude OAuth with auto code capture via local callback server + system browser
+  ipcMain.handle(IPC_CHANNELS.ONBOARDING_START_CLAUDE_OAUTH_AUTO, async (_event, connectionSlug: string) => {
+    let callbackClose: (() => void) | null = null
+    try {
+      mainLog.info('[Onboarding] Starting Claude OAuth auto flow...')
+
+      // Start a local callback server to receive the OAuth redirect
+      const callbackServer = await createCallbackServer({ appType: 'electron' })
+      callbackClose = callbackServer.close
+      const callbackRedirectUri = `${callbackServer.url}/callback`
+
+      mainLog.info(`[Onboarding] Callback server listening at ${callbackRedirectUri}`)
+
+      // Generate auth URL with the local callback as redirect_uri
+      const authUrl = generateClaudeOAuthUrl(callbackRedirectUri)
+
+      // Open the system browser for authentication (supports passkeys, biometrics, etc.)
+      mainLog.info('[Onboarding] Opening system browser for authentication...')
+      await openUrl(authUrl)
+
+      // Wait for the callback server to receive the authorization code
+      mainLog.info('[Onboarding] Waiting for OAuth callback...')
+      const payload = await callbackServer.promise
+
+      if (payload.query.error) {
+        const errorMsg = payload.query.error_description || payload.query.error
+        mainLog.error('[Onboarding] OAuth callback error:', errorMsg)
+        return { success: false, error: `OAuth error: ${errorMsg}` }
+      }
+
+      const code = payload.query.code
+      if (!code) {
+        return { success: false, error: 'No authorization code received' }
+      }
+
+      mainLog.info('[Onboarding] Got authorization code, exchanging for tokens...')
+
+      // Exchange the code for tokens (must use same redirect_uri)
+      const tokens = await exchangeClaudeCode(code, (status) => {
+        mainLog.info('[Onboarding] Claude code exchange status:', status)
+      }, callbackRedirectUri)
+
+      // Save credentials with refresh token support (dual-write pattern)
+      const manager = getCredentialManager()
+
+      await manager.setLlmOAuth(connectionSlug, {
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        expiresAt: tokens.expiresAt,
+      })
+
+      await manager.setClaudeOAuthCredentials({
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        expiresAt: tokens.expiresAt,
+        source: 'native',
+      })
+
+      const expiresAtDate = tokens.expiresAt ? new Date(tokens.expiresAt).toISOString() : 'never'
+      mainLog.info(`[Onboarding] Claude OAuth auto saved (expires: ${expiresAtDate})`)
+
+      return { success: true, token: tokens.accessToken }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      mainLog.error('[Onboarding] Claude OAuth auto error:', message)
+      return { success: false, error: message }
+    } finally {
+      callbackClose?.()
     }
   })
 

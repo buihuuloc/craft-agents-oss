@@ -22,7 +22,7 @@ Craft Agents is open source under the Apache 2.0 license - so you are free to re
 
 We built Craft Agents because we wanted a better, more opinionated (and preferably non-CLI way) of working with the most powerful agents in the world. We'll continue to improve it, based on our experiences and intuition.
 
-<img width="1578" height="894" alt="image" src="https://github.com/user-attachments/assets/3f1f2fe8-7cf6-4487-99ff-76f6c8c0a3fb" />
+<img alt="Craft Agents Screenshot" src="docs/images/craft-agent-screenshot.png" />
 
 ## Things that are hard to believe "just work"
 

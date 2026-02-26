@@ -457,7 +457,7 @@ export function useOnboarding({
         return
       }
 
-      // Claude OAuth (two-step flow - opens browser, user copies code)
+      // Claude OAuth (auto flow - opens in-app browser, captures code automatically)
       if (effectiveMethod !== 'claude_oauth') {
         setState(s => ({
           ...s,
@@ -467,17 +467,22 @@ export function useOnboarding({
         return
       }
 
-      const result = await window.electronAPI.startClaudeOAuth()
+      const connectionSlug = apiSetupMethodToConnectionSetup(effectiveMethod, {}, editingSlug, existingSlugs).slug
+      const result = await window.electronAPI.startClaudeOAuthAuto(connectionSlug)
 
-      if (result.success) {
-        // Browser opened successfully, now waiting for user to copy the code
-        setIsWaitingForCode(true)
-        setState(s => ({ ...s, credentialStatus: 'idle' }))
+      if (result.success && result.token) {
+        // Auto flow completed - tokens captured and saved automatically
+        await handleSaveConfig(result.token)
+        setState(s => ({
+          ...s,
+          credentialStatus: 'success',
+          step: 'complete',
+        }))
       } else {
         setState(s => ({
           ...s,
           credentialStatus: 'error',
-          errorMessage: result.error || 'Failed to start OAuth',
+          errorMessage: result.error || 'Failed to authenticate with Claude',
         }))
       }
     } catch (error) {

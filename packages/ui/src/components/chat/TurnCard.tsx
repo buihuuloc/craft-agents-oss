@@ -2022,10 +2022,7 @@ export const TurnCard = React.memo(function TurnCard({
                   )}
                   </AnimatePresence>
                 </div>
-                {/* TodoList - inside expanded section */}
-                {todos && todos.length > 0 && (
-                  <TodoList todos={todos} />
-                )}
+                {/* TodoList removed from chat UI — logic and component preserved */}
               </motion.div>
             )}
           </AnimatePresence>

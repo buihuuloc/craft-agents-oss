@@ -19,6 +19,7 @@ import {
   Plus,
   Moon,
   Sun,
+  LogOut,
 } from 'lucide-react'
 
 import { activeArtifactAtom } from '@/atoms/artifact'
@@ -35,6 +36,7 @@ import {
   CommandItem,
 } from '@/components/ui/command'
 import { useNavigation, routes } from '@/contexts/NavigationContext'
+import { useAppShellContext } from '@/context/AppShellContext'
 import { SETTINGS_PAGES } from '../../../shared/settings-registry'
 import { useTheme } from '@/context/ThemeContext'
 
@@ -48,6 +50,7 @@ export function CommandPalette() {
   const skills = useAtomValue(skillsAtom)
   const setArtifact = useSetAtom(activeArtifactAtom)
   const { navigate } = useNavigation()
+  const { onReset } = useAppShellContext()
   const { resolvedMode, setMode } = useTheme()
 
   // Sort sessions by lastMessageAt descending, exclude hidden/archived
@@ -127,6 +130,11 @@ export function CommandPalette() {
     setMode(resolvedMode === 'dark' ? 'light' : 'dark')
     close()
   }, [setMode, resolvedMode, close])
+
+  const handleLogout = useCallback(() => {
+    close()
+    onReset()
+  }, [close, onReset])
 
   return (
     <CommandDialog open={open} onOpenChange={setOpen}>
@@ -228,6 +236,13 @@ export function CommandPalette() {
               <Moon className="text-muted-foreground" />
             )}
             <span>Toggle Dark Mode</span>
+          </CommandItem>
+          <CommandItem
+            value="action:Logout Sign Out"
+            onSelect={handleLogout}
+          >
+            <LogOut className="text-muted-foreground" />
+            <span>Logout</span>
           </CommandItem>
         </CommandGroup>
       </CommandList>

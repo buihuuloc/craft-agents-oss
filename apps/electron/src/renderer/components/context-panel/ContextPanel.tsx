@@ -6,7 +6,7 @@
  */
 
 import { useAtom } from 'jotai'
-import { X, RotateCw } from 'lucide-react'
+import { X, RotateCw, Eye, Code2 } from 'lucide-react'
 import { useState, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -14,6 +14,7 @@ import { activeArtifactAtom } from '@/atoms/artifact'
 import { SourceCard } from './SourceCard'
 import { SkillDetailCard } from './SkillDetailCard'
 import { ContentPreviewRenderer } from './ContentPreviewRenderer'
+import { CodePreviewRenderer } from './CodePreviewRenderer'
 import type { ArtifactType } from '@/types/artifact'
 
 function getTitle(artifact: ArtifactType): string {
@@ -62,6 +63,7 @@ function ArtifactRenderer({ artifact, refreshKey }: { artifact: ArtifactType; re
 export function ContextPanel() {
   const [artifact, setArtifact] = useAtom(activeArtifactAtom)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [viewMode, setViewMode] = useState<'preview' | 'code'>('preview')
 
   const handleRefresh = useCallback(() => {
     setRefreshKey(k => k + 1)
@@ -70,6 +72,7 @@ export function ContextPanel() {
   if (!artifact) return null
 
   const isContentPreview = artifact.kind === 'content-preview'
+  const isHtmlPreview = isContentPreview && artifact.contentType === 'html'
   const typeLabel = getTypeLabel(artifact)
 
   return (
@@ -83,6 +86,29 @@ export function ContextPanel() {
           )}
         </div>
         <div className="flex items-center gap-1 shrink-0">
+          {/* Code/Preview toggle for HTML artifacts */}
+          {isHtmlPreview && (
+            <div className="flex items-center rounded-md border border-foreground/[0.08] overflow-hidden">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setViewMode('preview')}
+                title="Preview"
+                className={`h-7 w-7 rounded-none ${viewMode === 'preview' ? 'bg-foreground/[0.08]' : ''}`}
+              >
+                <Eye className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setViewMode('code')}
+                title="View Code"
+                className={`h-7 w-7 rounded-none ${viewMode === 'code' ? 'bg-foreground/[0.08]' : ''}`}
+              >
+                <Code2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          )}
           {isContentPreview && (
             <Button variant="ghost" size="icon" onClick={handleRefresh} title="Refresh">
               <RotateCw className="h-3.5 w-3.5" />
@@ -96,7 +122,11 @@ export function ContextPanel() {
       {/* Content */}
       {isContentPreview ? (
         <div className="flex-1 min-h-0 overflow-auto">
-          <ArtifactRenderer artifact={artifact} refreshKey={refreshKey} />
+          {isHtmlPreview && viewMode === 'code' ? (
+            <CodePreviewRenderer code={artifact.code} />
+          ) : (
+            <ArtifactRenderer artifact={artifact} refreshKey={refreshKey} />
+          )}
         </div>
       ) : (
         <ScrollArea className="flex-1">
