@@ -7,12 +7,11 @@
  * This provides sub-100ms settings changes instead of the 10-30 second round
  * trip through the agent (which reads files, edits configs, etc.).
  *
- * Only non-risky settings are intercepted. Risky settings (model changes,
- * workspace config, permissions) still go through the agent for the
- * confirmation flow.
+ * All settings are intercepted for instant application, regardless of risk
+ * classification. This provides the fastest possible settings UX.
  */
 
-import { getSettingByKey } from './settings-intent'
+import { getSettingByKey, dispatchSettingsChanged } from './settings-intent'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -84,6 +83,85 @@ const SETTINGS_PATTERNS: Array<{
   { pattern: /(?:turn|switch)\s+off\s+rich\s+(?:tool\s+)?descriptions?/i, settingKey: 'richToolDescriptions', extractValue: () => false },
   { pattern: /(?:enable)\s+rich\s+(?:tool\s+)?descriptions?/i, settingKey: 'richToolDescriptions', extractValue: () => true },
   { pattern: /(?:disable)\s+rich\s+(?:tool\s+)?descriptions?/i, settingKey: 'richToolDescriptions', extractValue: () => false },
+
+  // ── Send message key ────────────────────────────────────────────────────
+  { pattern: /(?:use|set|change)\s+(?:the\s+)?send\s+(?:message\s+)?key\s+(?:to\s+)?(enter|cmd[+-]enter)/i, settingKey: 'sendMessageKey', extractValue: (m) => m[1].toLowerCase().replace('+', '-') },
+  { pattern: /send\s+(?:messages?\s+)?with\s+(enter|cmd[+-]enter)/i, settingKey: 'sendMessageKey', extractValue: (m) => m[1].toLowerCase().replace('+', '-') },
+
+  // ── Color theme (must be AFTER themeMode patterns to avoid conflicts) ──
+  { pattern: /(?:use|apply|activate)\s+(?:the\s+)?([\w-]+)\s+(?:color\s+)?theme/i, settingKey: 'colorTheme', extractValue: (m) => m[1].toLowerCase() },
+  { pattern: /(?:set|change|switch)\s+(?:the\s+)?color\s+theme\s+(?:to\s+)?([\w-]+)/i, settingKey: 'colorTheme', extractValue: (m) => m[1].toLowerCase() },
+
+  // ── Workspace color theme ───────────────────────────────────────────────
+  { pattern: /(?:set|change)\s+(?:the\s+)?workspace\s+(?:color\s+)?theme\s+(?:to\s+)?([\w-]+)/i, settingKey: 'workspaceColorTheme', extractValue: (m) => m[1].toLowerCase() },
+
+  // ── User name ──────────────────────────────────────────────────────────
+  { pattern: /(?:set|change)\s+(?:my\s+)?(?:user\s*)?name\s+(?:to\s+)(.+)/i, settingKey: 'userName', extractValue: (m) => m[1].trim() },
+  { pattern: /(?:call|address)\s+me\s+(.+)/i, settingKey: 'userName', extractValue: (m) => m[1].trim() },
+  { pattern: /my\s+name\s+is\s+(.+)/i, settingKey: 'userName', extractValue: (m) => m[1].trim() },
+
+  // ── Timezone ───────────────────────────────────────────────────────────
+  { pattern: /(?:set|change)\s+(?:my\s+)?timezone\s+(?:to\s+)(.+)/i, settingKey: 'timezone', extractValue: (m) => m[1].trim() },
+  { pattern: /(?:my\s+)?timezone\s+is\s+(.+)/i, settingKey: 'timezone', extractValue: (m) => m[1].trim() },
+
+  // ── Language ───────────────────────────────────────────────────────────
+  { pattern: /(?:set|change)\s+(?:my\s+)?(?:preferred\s+)?language\s+(?:to\s+)(.+)/i, settingKey: 'language', extractValue: (m) => m[1].trim() },
+  { pattern: /(?:speak|respond|reply)\s+(?:in|to\s+me\s+in)\s+(.+)/i, settingKey: 'language', extractValue: (m) => m[1].trim() },
+
+  // ── City ───────────────────────────────────────────────────────────────
+  { pattern: /(?:set|change)\s+(?:my\s+)?city\s+(?:to\s+)(.+)/i, settingKey: 'city', extractValue: (m) => m[1].trim() },
+
+  // ── Country ────────────────────────────────────────────────────────────
+  { pattern: /(?:set|change)\s+(?:my\s+)?country\s+(?:to\s+)(.+)/i, settingKey: 'country', extractValue: (m) => m[1].trim() },
+
+  // ── Preference notes ──────────────────────────────────────────────────
+  { pattern: /(?:set|change)\s+(?:my\s+)?(?:preference\s+)?notes?\s+(?:to\s+)(.+)/i, settingKey: 'notes', extractValue: (m) => m[1].trim() },
+
+  // ── Default model ──────────────────────────────────────────────────────
+  { pattern: /(?:use|set|change|switch)\s+(?:the\s+)?(?:default\s+)?model\s+(?:to\s+)(.+)/i, settingKey: 'defaultModel', extractValue: (m) => m[1].trim() },
+
+  // ── Default LLM connection ─────────────────────────────────────────────
+  { pattern: /(?:use|set|switch)\s+(?:the\s+)?(?:default\s+)?(?:llm\s+)?connection\s+(?:to\s+)(.+)/i, settingKey: 'defaultLlmConnection', extractValue: (m) => m[1].trim() },
+
+  // ── Workspace model ────────────────────────────────────────────────────
+  { pattern: /(?:set|change)\s+(?:the\s+)?workspace\s+(?:default\s+)?model\s+(?:to\s+)(.+)/i, settingKey: 'workspaceModel', extractValue: (m) => m[1].trim() },
+
+  // ── Workspace connection ───────────────────────────────────────────────
+  { pattern: /(?:set|change)\s+(?:the\s+)?workspace\s+(?:default\s+)?connection\s+(?:to\s+)(.+)/i, settingKey: 'workspaceDefaultLlmConnection', extractValue: (m) => m[1].trim() },
+
+  // ── Workspace thinking level ───────────────────────────────────────────
+  { pattern: /(?:enable|turn\s+on)\s+max\s+thinking/i, settingKey: 'workspaceThinkingLevel', extractValue: () => 'max' },
+  { pattern: /(?:enable|turn\s+on)\s+thinking/i, settingKey: 'workspaceThinkingLevel', extractValue: () => 'think' },
+  { pattern: /(?:disable|turn\s+off)\s+thinking/i, settingKey: 'workspaceThinkingLevel', extractValue: () => 'off' },
+  { pattern: /(?:set|change)\s+(?:the\s+)?(?:workspace\s+)?thinking\s+(?:level\s+)?(?:to\s+)?(off|think|max)/i, settingKey: 'workspaceThinkingLevel', extractValue: (m) => m[1].toLowerCase() },
+  { pattern: /max\s+thinking/i, settingKey: 'workspaceThinkingLevel', extractValue: () => 'max' },
+  { pattern: /no\s+thinking/i, settingKey: 'workspaceThinkingLevel', extractValue: () => 'off' },
+
+  // ── Workspace name ─────────────────────────────────────────────────────
+  { pattern: /(?:rename|set|change)\s+(?:the\s+)?workspace\s+(?:name\s+)?(?:to\s+)(.+)/i, settingKey: 'workspaceName', extractValue: (m) => m[1].trim() },
+
+  // ── Working directory ──────────────────────────────────────────────────
+  { pattern: /(?:set|change)\s+(?:the\s+)?(?:working\s+)?(?:directory|dir|cwd)\s+(?:to\s+)(.+)/i, settingKey: 'workingDirectory', extractValue: (m) => m[1].trim() },
+
+  // ── Local MCP servers ──────────────────────────────────────────────────
+  { pattern: /(?:turn|switch)\s+on\s+(?:local\s+)?mcp\s*(?:servers?)?/i, settingKey: 'localMcpEnabled', extractValue: () => true },
+  { pattern: /(?:turn|switch)\s+off\s+(?:local\s+)?mcp\s*(?:servers?)?/i, settingKey: 'localMcpEnabled', extractValue: () => false },
+  { pattern: /(?:enable)\s+(?:local\s+)?mcp\s*(?:servers?)?/i, settingKey: 'localMcpEnabled', extractValue: () => true },
+  { pattern: /(?:disable)\s+(?:local\s+)?mcp\s*(?:servers?)?/i, settingKey: 'localMcpEnabled', extractValue: () => false },
+
+  // ── Permission mode ────────────────────────────────────────────────────
+  { pattern: /(?:set|change)\s+(?:the\s+)?permission(?:s)?\s+(?:mode\s+)?(?:to\s+)?(safe|ask|allow-all|auto|read[- ]?only|explore)/i, settingKey: 'permissionMode', extractValue: (m) => {
+    const v = m[1].toLowerCase().replace(/[\s-]+/g, '')
+    if (v === 'auto' || v === 'allowall') return 'allow-all'
+    if (v === 'readonly' || v === 'explore') return 'safe'
+    return v
+  }},
+  { pattern: /(?:use|switch\s+to)\s+(safe|ask|auto|allow-all|read[- ]?only|explore)\s*(?:mode|permissions?)?/i, settingKey: 'permissionMode', extractValue: (m) => {
+    const v = m[1].toLowerCase().replace(/[\s-]+/g, '')
+    if (v === 'auto' || v === 'allowall') return 'allow-all'
+    if (v === 'readonly' || v === 'explore') return 'safe'
+    return v
+  }},
 ]
 
 // ---------------------------------------------------------------------------
@@ -98,9 +176,9 @@ const SETTINGS_PATTERNS: Array<{
 export async function interceptSettingsMessage(message: string): Promise<SettingsInterceptResult> {
   const trimmed = message.trim()
 
-  // Quick heuristic: settings messages are short. Anything over 80 chars is
+  // Quick heuristic: settings messages are short. Anything over 200 chars is
   // almost certainly a complex request that should go to the agent.
-  if (trimmed.length > 80) {
+  if (trimmed.length > 200) {
     return { intercepted: false }
   }
 
@@ -110,15 +188,12 @@ export async function interceptSettingsMessage(message: string): Promise<Setting
       const setting = getSettingByKey(settingKey)
       if (!setting) continue
 
-      // Never intercept risky settings — the agent handles those with a
-      // preview/confirmation flow.
-      if (setting.risky) continue
-
       const newValue = extractValue(match)
 
       try {
         const oldValue = await setting.getValue()
         await setting.setValue(newValue)
+        dispatchSettingsChanged(settingKey, newValue)
 
         const oldStr = formatValue(oldValue)
         const newStr = formatValue(newValue)

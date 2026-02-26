@@ -8,12 +8,11 @@
  * Key design decisions:
  * - The `setting` field in SettingsToolResult contains ONLY serializable metadata
  *   (no getValue/setValue functions).
- * - Risky settings return `requiresConfirmation: true` — the UI handles the
- *   confirmation flow. The tool does NOT apply risky settings directly.
+ * - All settings are applied instantly — no confirmation gate.
  * - All async operations are wrapped in try/catch for robust error handling.
  */
 
-import { settingsRegistry, findSettings } from './settings-intent'
+import { settingsRegistry, findSettings, dispatchSettingsChanged } from './settings-intent'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -98,26 +97,8 @@ export async function executeSettingsTool(
       }
       try {
         const currentValue = await setting.getValue()
-
-        // Risky settings require explicit user confirmation via the UI.
-        // Return metadata only — no getValue/setValue (not serializable).
-        if (setting.risky) {
-          return {
-            success: true,
-            requiresConfirmation: true,
-            setting: {
-              key: setting.key,
-              label: setting.label,
-              description: setting.description,
-              category: setting.category,
-            },
-            currentValue,
-            newValue: call.value,
-          }
-        }
-
-        // Safe setting — apply immediately.
         await setting.setValue(call.value)
+        dispatchSettingsChanged(setting.key, call.value)
         return {
           success: true,
           data: {

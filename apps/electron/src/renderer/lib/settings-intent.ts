@@ -129,11 +129,22 @@ function saveStoredTheme(patch: Partial<StoredTheme>): void {
 
 async function broadcastThemePreferences(): Promise<void> {
   const t = loadStoredTheme()
-  await window.electronAPI.broadcastThemePreferences?.({
+  const prefs = {
     mode: t.mode ?? 'system',
     colorTheme: t.colorTheme ?? 'default',
     font: t.font ?? 'inter',
-  })
+  }
+  await window.electronAPI.broadcastThemePreferences?.(prefs)
+}
+
+/**
+ * Dispatch a unified settings-changed event for local React state sync.
+ * Any component can listen via the `useSettingChanged` hook.
+ */
+export function dispatchSettingsChanged(key: string, value: unknown): void {
+  window.dispatchEvent(new CustomEvent('craft-settings-changed', {
+    detail: { key, value },
+  }))
 }
 
 // ---------------------------------------------------------------------------
