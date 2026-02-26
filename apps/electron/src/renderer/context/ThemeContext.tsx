@@ -161,15 +161,20 @@ export function ThemeProvider({
 
   // Load preset theme when effectiveColorTheme changes (SINGLETON - only here, not in useTheme)
   useEffect(() => {
+    console.log('[ThemeContext] effectiveColorTheme changed:', effectiveColorTheme, { previewColorTheme, workspaceColorTheme, colorTheme })
     if (!effectiveColorTheme || effectiveColorTheme === 'default') {
+      console.log('[ThemeContext] Clearing preset (default theme)')
       setPresetTheme(null)
       return
     }
 
     // Load preset theme via IPC (app-level)
+    console.log('[ThemeContext] Loading preset theme via IPC:', effectiveColorTheme)
     window.electronAPI?.loadPresetTheme?.(effectiveColorTheme).then((preset) => {
+      console.log('[ThemeContext] Preset loaded:', preset ? { id: preset.id, hasTheme: !!preset.theme, themeKeys: preset.theme ? Object.keys(preset.theme) : [] } : 'null')
       setPresetTheme(preset?.theme ?? null)
-    }).catch(() => {
+    }).catch((err) => {
+      console.error('[ThemeContext] Failed to load preset:', err)
       setPresetTheme(null)
     })
   }, [effectiveColorTheme])
@@ -277,6 +282,7 @@ export function ThemeProvider({
 
   // Inject CSS variables
   useEffect(() => {
+    console.log('[ThemeContext] CSS injection effect triggered:', { effectiveColorTheme, hasPresetTheme: !!presetTheme, isDark, resolvedThemeKeys: Object.keys(resolvedTheme) })
     const styleId = 'craft-theme-overrides'
     let styleEl = document.getElementById(styleId) as HTMLStyleElement | null
 
@@ -288,23 +294,28 @@ export function ThemeProvider({
 
     // When using default theme, clear custom CSS
     if (!effectiveColorTheme || effectiveColorTheme === 'default') {
+      console.log('[ThemeContext] Clearing CSS (default theme)')
       styleEl.textContent = ''
       return
     }
 
     // Only inject CSS when preset is loaded (prevents flash with empty/wrong values)
     if (!presetTheme) {
+      console.log('[ThemeContext] Skipping CSS injection - preset not loaded yet')
       // Keep existing CSS while loading
       return
     }
 
     // Generate CSS variable declarations
     const cssVars = themeToCSS(resolvedTheme, isDark)
+    console.log('[ThemeContext] Generated CSS vars:', cssVars ? cssVars.substring(0, 200) + '...' : 'EMPTY')
 
     if (cssVars) {
       styleEl.textContent = `:root {\n  ${cssVars}\n}`
+      console.log('[ThemeContext] CSS injected successfully')
     } else {
       styleEl.textContent = ''
+      console.log('[ThemeContext] No CSS vars generated, cleared style')
     }
   }, [effectiveColorTheme, presetTheme, resolvedTheme, isDark])
 
@@ -344,10 +355,14 @@ export function ThemeProvider({
   useEffect(() => {
     const handler = (e: Event) => {
       const { key, value } = (e as CustomEvent).detail
+      console.log('[ThemeContext] craft-settings-changed event received:', { key, value })
       if (key === 'themeMode' || key === 'colorTheme' || key === 'font') {
         isExternalUpdate.current = true
         if (key === 'themeMode') setModeState(value as ThemeMode)
-        else if (key === 'colorTheme') setColorThemeState(value as string)
+        else if (key === 'colorTheme') {
+          console.log('[ThemeContext] Setting colorTheme state to:', value)
+          setColorThemeState(value as string)
+        }
         else if (key === 'font') setFontState(value as FontFamily)
         setTimeout(() => {
           isExternalUpdate.current = false

@@ -193,7 +193,9 @@ export async function interceptSettingsMessage(message: string): Promise<Setting
 
       try {
         const oldValue = await setting.getValue()
+        console.log('[Interceptor] Applying setting:', { settingKey, oldValue, newValue })
         await setting.setValue(newValue)
+        console.log('[Interceptor] setValue complete, dispatching event')
         dispatchSettingsChanged(settingKey, newValue)
 
         const oldStr = formatValue(oldValue)
