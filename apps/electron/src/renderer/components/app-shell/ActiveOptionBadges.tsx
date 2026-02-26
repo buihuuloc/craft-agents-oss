@@ -147,17 +147,7 @@ export function ActiveOptionBadges({
 
   return (
     <div className={cn("flex items-start gap-2 mb-2 px-px pt-px pb-0.5", className)}>
-      {/* Permission Mode Badge */}
-      {permissionMode && (
-        <div className="shrink-0">
-          <PermissionModeDropdown
-            permissionMode={permissionMode}
-            ultrathinkEnabled={ultrathinkEnabled}
-            onPermissionModeChange={onPermissionModeChange}
-            onUltrathinkChange={onUltrathinkChange}
-          />
-        </div>
-      )}
+      {/* Permission Mode Badge — hidden from chat UI, accessible via Cmd+K */}
 
       {/* State Badge — standalone on the left, after Mode */}
       {hasState && resolvedState && (
