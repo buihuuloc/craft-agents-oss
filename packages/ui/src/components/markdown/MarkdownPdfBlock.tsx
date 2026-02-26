@@ -35,6 +35,7 @@ import { CodeBlock } from './CodeBlock'
 import { PDFPreviewOverlay } from '../overlay/PDFPreviewOverlay'
 import { ItemNavigator } from '../overlay/ItemNavigator'
 import { usePlatform } from '../../context/PlatformContext'
+import { ArtifactCompactCard } from './ArtifactCompactCard'
 import 'react-pdf/dist/Page/AnnotationLayer.css'
 import 'react-pdf/dist/Page/TextLayer.css'
 
@@ -80,7 +81,7 @@ export interface MarkdownPdfBlockProps {
 }
 
 export function MarkdownPdfBlock({ code, className }: MarkdownPdfBlockProps) {
-  const { onReadFileBinary } = usePlatform()
+  const { onReadFileBinary, onOpenArtifactPreview } = usePlatform()
 
   // Parse the JSON spec — supports single src or items array
   const spec = React.useMemo<PdfPreviewSpec | null>(() => {
@@ -160,6 +161,19 @@ export function MarkdownPdfBlock({ code, className }: MarkdownPdfBlockProps) {
   // Invalid spec → fall back to code block
   if (!spec || items.length === 0) {
     return <CodeBlock code={code} language="json" mode="full" className={className} />
+  }
+
+  // Compact card mode: when onOpenArtifactPreview is available, render a clickable card
+  if (onOpenArtifactPreview) {
+    return (
+      <ArtifactCompactCard
+        title={spec.title || 'PDF Preview'}
+        typeLabel="PDF"
+        icon={FileText}
+        onClick={() => onOpenArtifactPreview({ contentType: 'pdf', title: spec.title || 'PDF Preview', code })}
+        className={className}
+      />
+    )
   }
 
   const fallback = <CodeBlock code={code} language="json" mode="full" className={className} />

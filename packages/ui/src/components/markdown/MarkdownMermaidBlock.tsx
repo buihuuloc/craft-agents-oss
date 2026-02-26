@@ -1,10 +1,12 @@
 import * as React from 'react'
 import { renderMermaidSync } from '@craft-agent/mermaid'
-import { Maximize2 } from 'lucide-react'
+import { GitBranch, Maximize2 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { CodeBlock } from './CodeBlock'
 import { MermaidPreviewOverlay } from '../overlay/MermaidPreviewOverlay'
 import { useScrollFade } from './useScrollFade'
+import { usePlatform } from '../../context/PlatformContext'
+import { ArtifactCompactCard } from './ArtifactCompactCard'
 
 // ============================================================================
 // MarkdownMermaidBlock — renders mermaid code fences as SVG diagrams.
@@ -52,6 +54,8 @@ interface MarkdownMermaidBlockProps {
 }
 
 export function MarkdownMermaidBlock({ code, className, showExpandButton = true }: MarkdownMermaidBlockProps) {
+  const { onOpenArtifactPreview } = usePlatform()
+
   // Render synchronously — no flash between CodeBlock and SVG.
   // Colors are CSS variable references so the SVG inherits from the app's theme
   // via CSS cascade. Theme switches apply automatically without re-rendering.
@@ -138,6 +142,23 @@ export function MarkdownMermaidBlock({ code, className, showExpandButton = true 
       needsScroll: scaledOverflow > 0,
     }
   }, [svg])
+
+  // Compact card mode: when onOpenArtifactPreview is available, render a clickable card
+  if (onOpenArtifactPreview) {
+    // Extract a title from the first line of mermaid code (e.g., "graph LR" → "Mermaid Diagram")
+    const firstLine = code.split('\n')[0]?.trim() || ''
+    const diagramType = firstLine.split(/\s/)[0] || 'diagram'
+    const title = `Mermaid ${diagramType.charAt(0).toUpperCase() + diagramType.slice(1)}`
+    return (
+      <ArtifactCompactCard
+        title={title}
+        typeLabel="Diagram"
+        icon={GitBranch}
+        onClick={() => onOpenArtifactPreview({ contentType: 'mermaid', title, code })}
+        className={className}
+      />
+    )
+  }
 
   // On error, fall back to a plain code block showing the mermaid source
   if (error) {

@@ -435,6 +435,7 @@ describe('TokenRefreshManager', () => {
 
       expect(result.success).toBe(true);
       expect(result.token).toBe('new-fresh-token');
+      // eslint-disable-next-line craft-shared/no-inline-source-auth-check -- test assertion on mutated field
       expect(source.config.isAuthenticated).toBe(true);
       expect(source.config.connectionStatus).toBe('connected');
       expect(source.config.connectionError).toBeUndefined();
@@ -465,6 +466,7 @@ describe('TokenRefreshManager', () => {
       const result = await manager.ensureFreshToken(source);
 
       expect(result.success).toBe(false);
+      // eslint-disable-next-line craft-shared/no-inline-source-auth-check -- test assertion on mutated field
       expect(source.config.isAuthenticated).toBe(false);
       expect(mockMarkSourceAuthenticated).not.toHaveBeenCalled();
     });
@@ -504,6 +506,7 @@ describe('TokenRefreshManager', () => {
       expect(failed.length).toBe(0);
 
       // Step 3: Verify auth state is restored
+      // eslint-disable-next-line craft-shared/no-inline-source-auth-check -- test assertion on mutated field
       expect(source.config.isAuthenticated).toBe(true);
       expect(source.config.connectionStatus).toBe('connected');
       expect(source.config.connectionError).toBeUndefined();

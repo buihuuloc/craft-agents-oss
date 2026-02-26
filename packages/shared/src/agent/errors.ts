@@ -237,9 +237,69 @@ function extractErrorMessages(error: unknown): string {
 }
 
 /**
+ * Detect error type from structured error properties.
+ * Checks for HTTP status codes, error types, and SDK error shapes
+ * before falling back to string matching.
+ */
+function detectFromStructuredError(error: unknown): ErrorCode | null {
+  if (!error || typeof error !== 'object') return null;
+
+  // Check for status code property (common in HTTP/API errors)
+  const statusCode =
+    (error as Record<string, unknown>).status ??
+    (error as Record<string, unknown>).statusCode ??
+    (error as Record<string, unknown>).code;
+
+  if (typeof statusCode === 'number') {
+    switch (statusCode) {
+      case 401: return 'invalid_api_key';
+      case 402: return 'billing_error';
+      case 429: return 'rate_limited';
+      case 500:
+      case 502:
+      case 503:
+      case 504: return 'service_error';
+    }
+  }
+
+  // Check for error type property (Anthropic SDK pattern)
+  const errorType =
+    (error as Record<string, unknown>).type ??
+    ((error as Record<string, unknown>).error as Record<string, unknown> | undefined)?.type;
+  if (typeof errorType === 'string') {
+    switch (errorType) {
+      case 'authentication_error': return 'invalid_api_key';
+      case 'rate_limit_error': return 'rate_limited';
+      case 'api_error':
+      case 'overloaded_error': return 'service_error';
+    }
+  }
+
+  // Check for nested error with status (SDK wraps API errors)
+  const nestedError = (error as Record<string, unknown>).error;
+  if (nestedError && typeof nestedError === 'object') {
+    return detectFromStructuredError(nestedError);
+  }
+
+  return null;
+}
+
+/**
  * Parse an error and return a typed AgentError with user-friendly info
  */
 export function parseError(error: unknown): AgentError {
+  // 1. Try structured detection first (status codes from Error objects)
+  const structuredCode = detectFromStructuredError(error);
+  if (structuredCode) {
+    const definition = ERROR_DEFINITIONS[structuredCode];
+    return {
+      code: structuredCode,
+      ...definition,
+      originalError: error instanceof Error ? error.message : String(error),
+    };
+  }
+
+  // 2. Fall back to existing string matching
   // Extract all error messages including nested causes and subprocess output
   const fullErrorText = extractErrorMessages(error);
   const errorMessage = error instanceof Error ? error.message : String(error);

@@ -16,37 +16,37 @@
 @property --background {
   syntax: "<color>";
   inherits: true;
-  initial-value: oklch(0.98 0.003 265);
+  initial-value: #faf5ef;
 }
 
 @property --foreground {
   syntax: "<color>";
   inherits: true;
-  initial-value: oklch(0.185 0.01 270);
+  initial-value: #3d352b;
 }
 
 @property --accent {
   syntax: "<color>";
   inherits: true;
-  initial-value: oklch(0.62 0.13 293);
+  initial-value: #c4623a;
 }
 
 @property --info {
   syntax: "<color>";
   inherits: true;
-  initial-value: oklch(0.65 0.16 70);
+  initial-value: #b8860b;
 }
 
 @property --success {
   syntax: "<color>";
   inherits: true;
-  initial-value: oklch(0.55 0.17 145);
+  initial-value: #3d8b5e;
 }
 
 @property --destructive {
   syntax: "<color>";
   inherits: true;
-  initial-value: oklch(0.55 0.22 27);
+  initial-value: #c74a3a;
 }
 
 /* =============================================================================
@@ -70,17 +70,17 @@
 /* Light Mode */
 :root {
   /* === 6 BASE COLORS === */
-  --background: oklch(0.98 0.003 265);
-  --foreground: oklch(0.185 0.01 270);
-  --foreground-rgb: 38, 36, 42;             /* RGB for shadow borders */
-  --accent: oklch(0.62 0.13 293);           /* purple - brand, Auto mode */
-  --accent-rgb: 104, 78, 133;               /* darkened RGB for shadow-tinted (70% of accent) */
-  --info: oklch(0.75 0.16 70);              /* amber - warnings, Ask mode */
-  --info-rgb: 180, 120, 40;                 /* RGB for shadow-tinted */
-  --success: oklch(0.55 0.17 145);          /* green - connected, checkmarks */
-  --success-rgb: 34, 120, 60;               /* RGB for shadow-tinted */
-  --destructive: oklch(0.58 0.24 28);       /* red - errors, failed */
-  --destructive-rgb: 180, 60, 50;           /* RGB for shadow-tinted */
+  --background: #faf5ef;
+  --foreground: #3d352b;
+  --foreground-rgb: 61, 53, 43;             /* RGB for shadow borders */
+  --accent: #c4623a;                        /* warm terracotta - brand, Auto mode */
+  --accent-rgb: 136, 68, 40;               /* darkened RGB for shadow-tinted (70% of accent) */
+  --info: #b8860b;                          /* warm amber - warnings, Ask mode */
+  --info-rgb: 128, 94, 8;                  /* RGB for shadow-tinted */
+  --success: #3d8b5e;                       /* muted green - connected, checkmarks */
+  --success-rgb: 43, 97, 66;                /* RGB for shadow-tinted */
+  --destructive: #c74a3a;                   /* warm red - errors, failed */
+  --destructive-rgb: 139, 52, 40;           /* RGB for shadow-tinted */
 
   /* === SHADOW OPACITY (light mode = subtle, dark mode = stronger) === */
   --shadow-border-opacity: 0.08;            /* Border ring opacity */
@@ -208,17 +208,17 @@
 /* Dark Mode */
 .dark {
   /* === 6 BASE COLORS === */
-  --background: oklch(0.2 0.005 270);
-  --foreground: oklch(0.92 0.005 270);
-  --foreground-rgb: 227, 226, 229;           /* RGB for shadow borders */
-  --accent: oklch(0.68 0.13 293);            /* brighter purple in dark */
-  --accent-rgb: 118, 92, 147;                /* darkened RGB for shadow-tinted (70% of accent) */
-  --info: oklch(0.70 0.16 70);               /* amber */
-  --info-rgb: 200, 140, 60;                  /* RGB for shadow-tinted */
-  --success: oklch(0.60 0.17 145);           /* green */
-  --success-rgb: 50, 140, 80;                /* RGB for shadow-tinted */
-  --destructive: oklch(0.70 0.19 22);        /* brighter red in dark */
-  --destructive-rgb: 200, 80, 70;            /* RGB for shadow-tinted */
+  --background: #2b2926;
+  --foreground: #e8e0d4;
+  --foreground-rgb: 232, 224, 212;           /* RGB for shadow borders */
+  --accent: #da7756;                         /* warm terracotta in dark */
+  --accent-rgb: 151, 83, 60;                /* darkened RGB for shadow-tinted (70% of accent) */
+  --info: #d4a574;                           /* warm amber */
+  --info-rgb: 148, 116, 81;                 /* RGB for shadow-tinted */
+  --success: #5a9a6b;                        /* muted green */
+  --success-rgb: 63, 108, 75;                /* RGB for shadow-tinted */
+  --destructive: #d4574a;                    /* warm red in dark */
+  --destructive-rgb: 148, 61, 52;            /* RGB for shadow-tinted */
 
   /* === SHADOW OPACITY (stronger in dark mode for visibility) === */
   --shadow-border-opacity: 0.15;

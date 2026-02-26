@@ -1,6 +1,6 @@
 {
   "name": "Default",
-  "description": "Clean purple-tinted neutral theme",
+  "description": "Warm, clean theme inspired by Claude",
   "author": "Craft Agent",
   "license": "MIT",
   "supportedModes": ["light", "dark"],
@@ -8,18 +8,18 @@
     "light": "github-light",
     "dark": "github-dark"
   },
-  "background": "#faf9fb",
-  "foreground": "#1a1625",
-  "accent": "#8b5cf6",
-  "info": "#d97706",
-  "success": "#16a34a",
-  "destructive": "#dc2626",
+  "background": "#faf5ef",
+  "foreground": "#3d352b",
+  "accent": "#c4623a",
+  "info": "#b8860b",
+  "success": "#3d8b5e",
+  "destructive": "#c74a3a",
   "dark": {
-    "background": "#1e1d21",
-    "foreground": "#f5f5f7",
-    "accent": "#a78bfa",
-    "info": "#fbbf24",
-    "success": "#22c55e",
-    "destructive": "#ef4444"
+    "background": "#2b2926",
+    "foreground": "#e8e0d4",
+    "accent": "#da7756",
+    "info": "#d4a574",
+    "success": "#5a9a6b",
+    "destructive": "#d4574a"
   }
 }

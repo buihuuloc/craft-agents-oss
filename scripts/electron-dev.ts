@@ -128,8 +128,10 @@ async function killProcessOnPort(port: string): Promise<void> {
   }
 }
 
-// Clean Vite cache directory
+// Clean Vite cache directory (only when --clean flag is passed)
+// Skipped by default to avoid forced dep re-optimization which causes a page reload race
 function cleanViteCache(): void {
+  if (!process.argv.includes("--clean")) return;
   const viteCacheDir = join(ELECTRON_DIR, "node_modules/.vite");
   if (existsSync(viteCacheDir)) {
     rmSync(viteCacheDir, { recursive: true, force: true });
