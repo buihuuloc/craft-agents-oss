@@ -134,6 +134,11 @@ export class WindowManager {
       }
     })
 
+    // Disable native pinch-to-zoom so trackpad pinch gestures are passed through
+    // as wheel events (ctrlKey=true) to the renderer. Custom zoom handling in
+    // components like MermaidPreviewOverlay handles zoom at the DOM level.
+    window.webContents.setVisualZoomLevelLimits(1, 1)
+
     // Show window when first paint is ready (faster perceived startup)
     window.once('ready-to-show', () => {
       window.show()
