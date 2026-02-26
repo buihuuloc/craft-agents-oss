@@ -157,23 +157,23 @@ export function deriveConnectionStatus(source: {
     return source.config.connectionStatus
   }
 
-  // Derive from auth state
+  // Derive from auth state — this function operates on a partial source config (not LoadedSource),
+  // so we replicate isSourceUsable logic inline rather than calling it directly.
   const api = source.config.api
-  const requiresAuth = (mcp?.authType && mcp.authType !== 'none') ||
-                       (api?.authType && api.authType !== 'none')
+  const authType = mcp?.authType || api?.authType
+  const requiresAuth = authType !== undefined && authType !== 'none'
 
-  if (requiresAuth && !source.config.isAuthenticated) {
-    return 'needs_auth'
+  // Sources with no auth requirement (authType "none" or undefined) are always usable
+  if (!requiresAuth) {
+    return 'connected'
   }
 
+  // eslint-disable-next-line craft-sources/no-inline-source-auth-check -- partial config, not LoadedSource
   if (source.config.isAuthenticated) {
     return 'connected'
   }
 
-  // Local sources are always connected
-  if (source.config.type === 'local') {
-    return 'connected'
-  }
+  return 'needs_auth'
 
   return 'untested'
 }

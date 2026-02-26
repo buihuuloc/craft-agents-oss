@@ -248,7 +248,7 @@ async function refreshOAuthTokensIfNeeded(
   if (refreshed.length > 0) {
     // Rebuild server configs with fresh tokens
     sessionLog.debug(`[OAuth] Rebuilding servers after ${refreshed.length} token refresh(es)`)
-    const enabledSources = sources.filter(s => s.config.enabled && s.config.isAuthenticated)
+    const enabledSources = sources.filter(s => isSourceUsable(s))
     const { mcpServers, apiServers } = await buildServersFromSources(
       enabledSources,
       sessionPath,

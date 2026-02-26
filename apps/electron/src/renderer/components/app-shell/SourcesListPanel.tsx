@@ -30,6 +30,7 @@ import { SourceMenu } from './SourceMenu'
 import { EditPopover, getEditConfig, type EditContextKey } from '@/components/ui/EditPopover'
 import { cn } from '@/lib/utils'
 import type { LoadedSource, SourceConnectionStatus, SourceFilter } from '../../../shared/types'
+import { isSourceUsable } from '@craft-agent/shared/sources'
 
 export interface SourcesListPanelProps {
   sources: LoadedSource[]
@@ -133,7 +134,7 @@ export function SourcesListPanel({
         <div className="pt-2">
           {filteredSources.map((source, index) => (
             <SourceItem
-              key={`${source.config.slug}-${source.config.connectionStatus}-${source.config.isAuthenticated}-${localMcpEnabled}`}
+              key={`${source.config.slug}-${source.config.connectionStatus}-${isSourceUsable(source)}-${localMcpEnabled}`}
               source={source}
               isSelected={selectedSourceSlug === source.config.slug}
               isFirst={index === 0}
