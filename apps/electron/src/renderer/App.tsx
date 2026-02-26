@@ -54,6 +54,8 @@ import {
 } from '@craft-agent/ui'
 import { useLinkInterceptor, type FilePreviewState } from '@/hooks/useLinkInterceptor'
 import { ActionRegistryProvider } from '@/actions'
+import { interceptSettingsMessage } from '@/lib/settings-interceptor'
+import { toast } from 'sonner'
 
 type AppState = 'loading' | 'onboarding' | 'reauth' | 'ready'
 
@@ -764,6 +766,38 @@ export default function App() {
 
   const handleSendMessage = useCallback(async (sessionId: string, message: string, attachments?: FileAttachment[], skillSlugs?: string[], externalBadges?: ContentBadge[]) => {
     try {
+      // Step 0: Intercept settings messages for instant application
+      // Only intercept when there are no attachments (simple text commands)
+      if (!attachments?.length) {
+        const interceptResult = await interceptSettingsMessage(message)
+        if (interceptResult.intercepted) {
+          // Add user message to chat so it appears in the conversation
+          const userMsg: Message = {
+            id: generateMessageId(),
+            role: 'user',
+            content: message,
+            timestamp: Date.now(),
+          }
+          // Add confirmation as an assistant message immediately after
+          const confirmMsg: Message = {
+            id: generateMessageId(),
+            role: 'assistant',
+            content: interceptResult.confirmationMessage ?? `Setting updated.`,
+            timestamp: Date.now(),
+          }
+          updateSessionById(sessionId, (s) => ({
+            messages: [...s.messages, userMsg, confirmMsg],
+            lastMessageAt: Date.now(),
+          }))
+          // Show toast for quick visual feedback
+          toast.success(`${interceptResult.settingLabel} updated`, {
+            description: `Changed to ${interceptResult.newValue}`,
+          })
+          // Do NOT call window.electronAPI.sendMessage — skip the agent entirely
+          return
+        }
+      }
+
       // Step 1: Store attachments and get persistent metadata
       let storedAttachments: StoredAttachment[] | undefined
       let processedAttachments: FileAttachment[] | undefined
