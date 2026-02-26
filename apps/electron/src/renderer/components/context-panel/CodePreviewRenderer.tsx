@@ -11,17 +11,20 @@ import { useTheme } from '@/context/ThemeContext'
 
 interface CodePreviewRendererProps {
   code: string
+  /** Syntax language for highlighting. Default 'html'. */
+  language?: string
 }
 
-export function CodePreviewRenderer({ code }: CodePreviewRendererProps) {
+export function CodePreviewRenderer({ code, language = 'html' }: CodePreviewRendererProps) {
   const { isDark } = useTheme()
   const { onReadFile } = usePlatform()
   const [htmlContent, setHtmlContent] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Parse the JSON spec to extract src path
+  // Parse the JSON spec to extract src path (only for HTML — mermaid code is raw text)
   const src = useMemo(() => {
+    if (language !== 'html') return null
     try {
       const parsed = JSON.parse(code)
       if (parsed.src && typeof parsed.src === 'string') return parsed.src
@@ -30,7 +33,7 @@ export function CodePreviewRenderer({ code }: CodePreviewRendererProps) {
       // Not JSON — code itself is raw HTML
     }
     return null
-  }, [code])
+  }, [code, language])
 
   // Load the actual HTML file content
   useEffect(() => {
@@ -62,7 +65,7 @@ export function CodePreviewRenderer({ code }: CodePreviewRendererProps) {
     <div className="h-full">
       <ShikiCodeViewer
         code={displayCode}
-        language="html"
+        language={language}
         theme={isDark ? 'dark' : 'light'}
       />
     </div>

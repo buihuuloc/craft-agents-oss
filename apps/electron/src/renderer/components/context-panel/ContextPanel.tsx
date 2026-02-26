@@ -15,6 +15,7 @@ import { SourceCard } from './SourceCard'
 import { SkillDetailCard } from './SkillDetailCard'
 import { ContentPreviewRenderer } from './ContentPreviewRenderer'
 import { CodePreviewRenderer } from './CodePreviewRenderer'
+import { MermaidPanelRenderer } from './MermaidPanelRenderer'
 import type { ArtifactType } from '@/types/artifact'
 
 function getTitle(artifact: ArtifactType): string {
@@ -73,6 +74,8 @@ export function ContextPanel() {
 
   const isContentPreview = artifact.kind === 'content-preview'
   const isHtmlPreview = isContentPreview && artifact.contentType === 'html'
+  const isMermaidPreview = isContentPreview && artifact.contentType === 'mermaid'
+  const hasCodeToggle = isHtmlPreview || isMermaidPreview
   const typeLabel = getTypeLabel(artifact)
 
   return (
@@ -86,8 +89,8 @@ export function ContextPanel() {
           )}
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          {/* Code/Preview toggle for HTML artifacts */}
-          {isHtmlPreview && (
+          {/* Code/Preview toggle for HTML and Mermaid artifacts */}
+          {hasCodeToggle && (
             <div className="flex items-center rounded-md border border-foreground/[0.08] overflow-hidden">
               <Button
                 variant="ghost"
@@ -122,8 +125,10 @@ export function ContextPanel() {
       {/* Content */}
       {isContentPreview ? (
         <div className="flex-1 min-h-0 overflow-auto">
-          {isHtmlPreview && viewMode === 'code' ? (
-            <CodePreviewRenderer code={artifact.code} />
+          {hasCodeToggle && viewMode === 'code' ? (
+            <CodePreviewRenderer code={artifact.code} language={isMermaidPreview ? 'mermaid' : 'html'} />
+          ) : isMermaidPreview ? (
+            <MermaidPanelRenderer code={artifact.code} />
           ) : (
             <ArtifactRenderer artifact={artifact} refreshKey={refreshKey} />
           )}
