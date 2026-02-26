@@ -21,6 +21,8 @@ import {
   routes,
   isSessionsNavigation,
 } from '@/contexts/NavigationContext'
+import { useAppShellContext } from '@/context/AppShellContext'
+import { WorkspaceSwitcher } from './WorkspaceSwitcher'
 
 export interface SessionSidebarProps {
   onNewSession: () => void
@@ -31,6 +33,7 @@ export interface SessionSidebarProps {
 export function SessionSidebar({ onNewSession, onCommandPaletteOpen, onToggleSidebar }: SessionSidebarProps) {
   const sessionMetaMap = useAtomValue(sessionMetaMapAtom)
   const { navigate } = useNavigation()
+  const { workspaces, activeWorkspaceId, onSelectWorkspace, onRefreshWorkspaces } = useAppShellContext()
   const navigationState = useNavigationState()
 
   // Derive the currently active session ID
@@ -117,13 +120,20 @@ export function SessionSidebar({ onNewSession, onCommandPaletteOpen, onToggleSid
         })}
       </div>
 
-      {/* Hide sidebar button (bottom) */}
-      {onToggleSidebar && (
-        <div className="shrink-0 px-2 py-2 border-t border-foreground/[0.06]">
+      {/* Bottom section: workspace switcher + hide sidebar */}
+      <div className="shrink-0 px-2 py-2 border-t border-foreground/[0.06]">
+        <WorkspaceSwitcher
+          isCollapsed={false}
+          workspaces={workspaces}
+          activeWorkspaceId={activeWorkspaceId}
+          onSelect={onSelectWorkspace}
+          onWorkspaceCreated={() => onRefreshWorkspaces?.()}
+        />
+        {onToggleSidebar && (
           <button
             onClick={onToggleSidebar}
             className={cn(
-              'flex items-center gap-2 px-3 py-1.5 text-xs rounded-md w-full',
+              'flex items-center gap-2 px-3 py-1.5 text-xs rounded-md w-full mt-0.5',
               'text-foreground/40 hover:text-foreground/60 hover:bg-foreground/[0.03]',
               'transition-colors text-left'
             )}
@@ -131,8 +141,8 @@ export function SessionSidebar({ onNewSession, onCommandPaletteOpen, onToggleSid
             <PanelLeftClose className="h-3.5 w-3.5 shrink-0" />
             Hide sidebar
           </button>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }

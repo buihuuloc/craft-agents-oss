@@ -20,6 +20,8 @@ import {
   Moon,
   Sun,
   LogOut,
+  FolderOpen,
+  Check,
 } from 'lucide-react'
 
 import { activeArtifactAtom } from '@/atoms/artifact'
@@ -50,7 +52,7 @@ export function CommandPalette() {
   const skills = useAtomValue(skillsAtom)
   const setArtifact = useSetAtom(activeArtifactAtom)
   const { navigate } = useNavigation()
-  const { onReset } = useAppShellContext()
+  const { onReset, workspaces, activeWorkspaceId, onSelectWorkspace } = useAppShellContext()
   const { resolvedMode, setMode } = useTheme()
 
   // Sort sessions by lastMessageAt descending, exclude hidden/archived
@@ -136,6 +138,14 @@ export function CommandPalette() {
     onReset()
   }, [close, onReset])
 
+  const handleSelectWorkspace = useCallback(
+    (workspaceId: string) => {
+      onSelectWorkspace(workspaceId)
+      close()
+    },
+    [onSelectWorkspace, close]
+  )
+
   return (
     <CommandDialog open={open} onOpenChange={setOpen}>
       <CommandInput placeholder="Search sessions, sources, settings..." />
@@ -216,6 +226,25 @@ export function CommandPalette() {
             </CommandItem>
           ))}
         </CommandGroup>
+
+        {/* Workspaces */}
+        {workspaces.length > 0 && (
+          <CommandGroup heading="Workspaces">
+            {workspaces.map((workspace) => (
+              <CommandItem
+                key={workspace.id}
+                value={`workspace:${workspace.name}${workspace.id}`}
+                onSelect={() => handleSelectWorkspace(workspace.id)}
+              >
+                <FolderOpen className="text-muted-foreground" />
+                <span className="flex-1 truncate">{workspace.name}</span>
+                {workspace.id === activeWorkspaceId && (
+                  <Check className="ml-auto shrink-0 h-4 w-4 text-accent" />
+                )}
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
 
         {/* Actions */}
         <CommandGroup heading="Actions">
