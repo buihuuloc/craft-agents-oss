@@ -1,20 +1,18 @@
 /**
  * MinimalTopBar
  *
- * A clean, minimal top bar for the chat-dominant layout. Replaces the complex
- * multi-panel headers with a simple bar containing:
+ * A clean, minimal top bar for the chat-dominant layout. Sits to the right
+ * of the SessionSidebar, so it no longer needs macOS traffic-light padding.
  *
  * Left side:
  *   - Back button (when navigation history allows going back)
- *   - Workspace name (clickable, opens command palette)
  *
  * Right side:
  *   - Search button (opens command palette)
  *   - Overflow menu (HeaderMenu with Open in New Window)
  *   - New session button
  *
- * The bar supports Electron window dragging (-webkit-app-region: drag) and
- * compensates for macOS traffic light controls on the left side.
+ * The bar supports Electron window dragging (-webkit-app-region: drag).
  *
  * When `minimal` is true (e.g., home screen), only the overflow menu and
  * new session button are shown, with a fully transparent background.
@@ -24,7 +22,6 @@ import { ChevronLeft, Search, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { isMac } from '@/lib/platform'
 import { useNavigation, routes } from '@/contexts/NavigationContext'
-import { useActiveWorkspace } from '@/context/AppShellContext'
 import { HeaderIconButton } from '@/components/ui/HeaderIconButton'
 import { HeaderMenu } from '@/components/ui/HeaderMenu'
 
@@ -37,8 +34,6 @@ export interface MinimalTopBarProps {
 
 export function MinimalTopBar({ onCommandPaletteOpen, minimal }: MinimalTopBarProps) {
   const { navigate, canGoBack, goBack } = useNavigation()
-  const activeWorkspace = useActiveWorkspace()
-  const workspaceName = activeWorkspace?.name ?? 'Workspace'
 
   const handleNewSession = () => {
     navigate(routes.action.newSession())
@@ -48,9 +43,7 @@ export function MinimalTopBar({ onCommandPaletteOpen, minimal }: MinimalTopBarPr
     <div
       className={cn(
         'flex shrink-0 items-center h-11 bg-transparent titlebar-drag-region',
-        // Left padding: compensate for macOS traffic lights (stoplight)
-        isMac ? 'pl-[80px]' : 'pl-3',
-        'pr-2'
+        'pl-3 pr-2'
       )}
     >
       {/* Left side */}
@@ -64,19 +57,6 @@ export function MinimalTopBar({ onCommandPaletteOpen, minimal }: MinimalTopBarPr
               onClick={goBack}
             />
           )}
-
-          {/* Workspace name - clickable, opens command palette */}
-          <button
-            onClick={onCommandPaletteOpen}
-            className={cn(
-              'flex items-center gap-1 px-2 py-1 rounded-md',
-              'text-sm font-medium text-foreground/80 truncate',
-              'hover:bg-foreground/[0.03] transition-colors',
-              'focus:outline-none focus-visible:ring-1 focus-visible:ring-ring'
-            )}
-          >
-            {workspaceName}
-          </button>
         </div>
       )}
 

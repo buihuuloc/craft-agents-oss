@@ -45,6 +45,7 @@ import type { ChatDisplayHandle } from './ChatDisplay'
 import { clearSourceIconCaches } from '@/lib/icon-cache'
 
 import { MinimalTopBar } from './MinimalTopBar'
+import { SessionSidebar } from './SessionSidebar'
 import { CommandPalette } from '@/components/command-palette/CommandPalette'
 import { ContextPanel } from '@/components/context-panel'
 import { HomeScreen } from '@/components/home'
@@ -292,30 +293,41 @@ function ChatDominantShellContent({
         {/* Draggable title bar region for transparent window (macOS) */}
         <div className="titlebar-drag-region fixed top-0 left-0 right-0 h-[50px] z-titlebar" />
 
-        <MinimalTopBar
-          onCommandPaletteOpen={() => setCommandPaletteOpen(true)}
-          minimal={isHomeScreen}
-        />
-
         <div className="flex flex-1 min-h-0">
-          {/* Main content -- full width by default */}
-          <div className="flex-1 min-w-0">
-            <MainContent />
+          {/* Session sidebar */}
+          <SessionSidebar
+            onNewSession={() => navigate(routes.action.newSession())}
+            onCommandPaletteOpen={() => setCommandPaletteOpen(true)}
+          />
+
+          {/* Main content area (top bar + content) */}
+          <div className="flex flex-col flex-1 min-w-0">
+            <MinimalTopBar
+              onCommandPaletteOpen={() => setCommandPaletteOpen(true)}
+              minimal={isHomeScreen}
+            />
+
+            <div className="flex flex-1 min-h-0">
+              {/* Main content -- full width by default */}
+              <div className="flex-1 min-w-0">
+                <MainContent />
+              </div>
+              <AnimatePresence>
+                {artifact && (
+                  <motion.div
+                    key="context-panel"
+                    initial={{ width: 0, opacity: 0 }}
+                    animate={{ width: 480, opacity: 1 }}
+                    exit={{ width: 0, opacity: 0 }}
+                    transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+                    className="border-l border-foreground-90 overflow-hidden shrink-0"
+                  >
+                    <ContextPanel />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
-          <AnimatePresence>
-            {artifact && (
-              <motion.div
-                key="context-panel"
-                initial={{ width: 0, opacity: 0 }}
-                animate={{ width: 480, opacity: 1 }}
-                exit={{ width: 0, opacity: 0 }}
-                transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-                className="border-l border-foreground-90 overflow-hidden shrink-0"
-              >
-                <ContextPanel />
-              </motion.div>
-            )}
-          </AnimatePresence>
         </div>
 
         <CommandPalette />
