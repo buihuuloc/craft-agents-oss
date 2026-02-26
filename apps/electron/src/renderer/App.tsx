@@ -314,24 +314,36 @@ export default function App() {
   // Compute if app is fully ready (all data loaded)
   const isFullyReady = appState === 'ready' && sessionsLoaded
 
-  // Safety timeout: force sessionsLoaded after 3s to prevent stuck splash
-  // (can happen after Vite HMR when IPC calls stall)
+  // Refs to track latest state for timeout callbacks (avoids stale closures)
+  const appStateRef = useRef(appState)
+  const sessionsLoadedRef = useRef(sessionsLoaded)
+  useEffect(() => { appStateRef.current = appState }, [appState])
+  useEffect(() => { sessionsLoadedRef.current = sessionsLoaded }, [sessionsLoaded])
+
+  // Safety timeout: force past loading/splash after 3s in dev mode
+  // Handles IPC calls that hang after Vite HMR or flaky dev restarts
   useEffect(() => {
-    if (appState === 'ready' && !sessionsLoaded) {
-      const timeout = setTimeout(() => {
-        if (!sessionsLoaded) {
-          console.warn('[App] Sessions loading timed out, forcing ready state')
-          setSessionsLoaded(true)
-        }
-      }, 3000)
-      return () => clearTimeout(timeout)
-    }
-  }, [appState, sessionsLoaded])
+    if (!import.meta.env.DEV) return
+    const timeout = setTimeout(() => {
+      if (appStateRef.current === 'loading') {
+        console.warn('[App] Dev safety: forcing appState to ready')
+        setAppState('ready')
+      }
+      if (!sessionsLoadedRef.current) {
+        console.warn('[App] Dev safety: forcing sessionsLoaded')
+        setSessionsLoaded(true)
+      }
+    }, 3000)
+    return () => clearTimeout(timeout)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps -- intentional: one-time mount timer using refs
 
   // Trigger splash exit animation when fully ready
   useEffect(() => {
     if (isFullyReady && !splashExiting) {
       setSplashExiting(true)
+      // Fallback: force-hide after 800ms in case animation callback doesn't fire
+      const fallback = setTimeout(() => setSplashHidden(true), 800)
+      return () => clearTimeout(fallback)
     }
   }, [isFullyReady, splashExiting])
 
