@@ -7,7 +7,7 @@
 
 import { useAtom } from 'jotai'
 import { X, RotateCw, Eye, Code2 } from 'lucide-react'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { activeArtifactAtom } from '@/atoms/artifact'
@@ -17,32 +17,13 @@ import { ContentPreviewRenderer } from './ContentPreviewRenderer'
 import { CodePreviewRenderer } from './CodePreviewRenderer'
 import { MermaidPanelRenderer } from './MermaidPanelRenderer'
 import type { ArtifactType } from '@/types/artifact'
-
-function getTitle(artifact: ArtifactType): string {
-  switch (artifact.kind) {
-    case 'source':
-      return 'Source'
-    case 'skill':
-      return 'Skill'
-    case 'session-meta':
-      return 'Session'
-    case 'settings-preview':
-      return 'Settings'
-    case 'multi-field-config':
-      return artifact.title
-    case 'content-preview':
-      return artifact.title
-  }
-}
-
-function getTypeLabel(artifact: ArtifactType): string | null {
-  if (artifact.kind !== 'content-preview') return null
-  switch (artifact.contentType) {
-    case 'html': return 'HTML'
-    case 'mermaid': return 'Diagram'
-    case 'pdf': return 'PDF'
-  }
-}
+import {
+  getArtifactTitle,
+  getArtifactTypeLabel,
+  nextViewModeAfterArtifactChange,
+  shouldShowCodeToggle,
+  type ArtifactViewMode,
+} from './context-panel-model'
 
 function ArtifactRenderer({ artifact, refreshKey }: { artifact: ArtifactType; refreshKey: number }) {
   switch (artifact.kind) {
@@ -64,26 +45,37 @@ function ArtifactRenderer({ artifact, refreshKey }: { artifact: ArtifactType; re
 export function ContextPanel() {
   const [artifact, setArtifact] = useAtom(activeArtifactAtom)
   const [refreshKey, setRefreshKey] = useState(0)
-  const [viewMode, setViewMode] = useState<'preview' | 'code'>('preview')
+  const [viewMode, setViewMode] = useState<ArtifactViewMode>('preview')
+  const previousArtifactRef = useRef<ArtifactType | null>(null)
 
   const handleRefresh = useCallback(() => {
     setRefreshKey(k => k + 1)
   }, [])
+
+  useEffect(() => {
+    if (!artifact) {
+      previousArtifactRef.current = null
+      return
+    }
+
+    setViewMode(prev => nextViewModeAfterArtifactChange(previousArtifactRef.current, artifact, prev))
+    previousArtifactRef.current = artifact
+  }, [artifact])
 
   if (!artifact) return null
 
   const isContentPreview = artifact.kind === 'content-preview'
   const isHtmlPreview = isContentPreview && artifact.contentType === 'html'
   const isMermaidPreview = isContentPreview && artifact.contentType === 'mermaid'
-  const hasCodeToggle = isHtmlPreview || isMermaidPreview
-  const typeLabel = getTypeLabel(artifact)
+  const hasCodeToggle = shouldShowCodeToggle(artifact)
+  const typeLabel = getArtifactTypeLabel(artifact)
 
   return (
     <div className="flex flex-col h-full bg-background">
       {/* Header — title + type on left, action buttons on right */}
       <div className="flex items-center gap-2 px-4 h-11 border-b border-foreground/[0.06] shrink-0">
         <div className="flex-1 min-w-0 flex items-center gap-2">
-          <span className="text-sm font-medium truncate">{getTitle(artifact)}</span>
+          <span className="text-sm font-medium truncate">{getArtifactTitle(artifact)}</span>
           {typeLabel && (
             <span className="text-xs text-muted-foreground shrink-0">{typeLabel}</span>
           )}

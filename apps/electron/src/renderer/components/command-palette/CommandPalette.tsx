@@ -26,7 +26,7 @@ import {
 
 import { activeArtifactAtom } from '@/atoms/artifact'
 import { commandPaletteOpenAtom } from '@/atoms/command-palette'
-import { sessionMetaMapAtom, type SessionMeta } from '@/atoms/sessions'
+import { sessionMetaMapAtom } from '@/atoms/sessions'
 import { sourcesAtom } from '@/atoms/sources'
 import { skillsAtom } from '@/atoms/skills'
 import {
@@ -41,9 +41,13 @@ import { useNavigation, routes } from '@/contexts/NavigationContext'
 import { useAppShellContext } from '@/context/AppShellContext'
 import { SETTINGS_PAGES } from '../../../shared/settings-registry'
 import { useTheme } from '@/context/ThemeContext'
-
-/** Max results per group to keep the palette snappy */
-const MAX_RESULTS_PER_GROUP = 5
+import {
+  buildCommandPaletteModel,
+  canSelectVisibleRootSession,
+  canSelectWorkspace,
+  DEFAULT_MAX_RESULTS_PER_GROUP,
+  getSettingPrompt,
+} from './command-palette-model'
 
 export function CommandPalette() {
   const [open, setOpen] = useAtom(commandPaletteOpenAtom)
@@ -55,36 +59,31 @@ export function CommandPalette() {
   const { onReset, workspaces, activeWorkspaceId, onSelectWorkspace } = useAppShellContext()
   const { resolvedMode, setMode } = useTheme()
 
-  // Sort sessions by lastMessageAt descending, exclude hidden/archived
-  const sessions = useMemo(() => {
-    const all: SessionMeta[] = []
-    for (const meta of sessionMetaMap.values()) {
-      if (meta.hidden || meta.isArchived || meta.parentSessionId) continue
-      all.push(meta)
-    }
-    all.sort((a, b) => (b.lastMessageAt ?? 0) - (a.lastMessageAt ?? 0))
-    return all.slice(0, MAX_RESULTS_PER_GROUP)
-  }, [sessionMetaMap])
-
-  // Filter out built-in sources
-  const visibleSources = useMemo(
-    () => sources.filter(s => !s.isBuiltin).slice(0, MAX_RESULTS_PER_GROUP),
-    [sources]
-  )
-
-  const visibleSkills = useMemo(
-    () => skills.slice(0, MAX_RESULTS_PER_GROUP),
-    [skills]
+  const model = useMemo(
+    () =>
+      buildCommandPaletteModel({
+        sessionMetaMap,
+        sources,
+        skills,
+        workspaces: workspaces.map(workspace => ({ id: workspace.id, name: workspace.name })),
+        activeWorkspaceId,
+        maxResultsPerGroup: DEFAULT_MAX_RESULTS_PER_GROUP,
+      }),
+    [sessionMetaMap, sources, skills, workspaces, activeWorkspaceId]
   )
 
   const close = useCallback(() => setOpen(false), [setOpen])
 
   const handleSelectSession = useCallback(
     (sessionId: string) => {
+      if (!canSelectVisibleRootSession(sessionMetaMap, sessionId)) {
+        close()
+        return
+      }
       navigate(routes.view.allSessions(sessionId))
       close()
     },
-    [navigate, close]
+    [sessionMetaMap, navigate, close]
   )
 
   const handleSelectSource = useCallback(
@@ -105,18 +104,7 @@ export function CommandPalette() {
 
   const handleSelectSetting = useCallback(
     (id: string) => {
-      const settingMessages: Record<string, string> = {
-        app: 'Show me my app settings',
-        ai: 'Show me my AI configuration',
-        appearance: 'Show me my appearance settings',
-        workspace: 'Show me my workspace settings',
-        permissions: 'Show me my permission settings',
-        labels: 'Show me my label settings',
-        input: 'Show me my input settings',
-        preferences: 'Show me my preferences',
-        shortcuts: 'Show me my keyboard shortcuts',
-      }
-      const message = settingMessages[id] || `Show me my ${id} settings`
+      const message = getSettingPrompt(id)
       navigate(routes.action.newSession({ input: message, send: true }))
       close()
     },
@@ -140,10 +128,14 @@ export function CommandPalette() {
 
   const handleSelectWorkspace = useCallback(
     (workspaceId: string) => {
+      if (!canSelectWorkspace(workspaces, workspaceId)) {
+        close()
+        return
+      }
       onSelectWorkspace(workspaceId)
       close()
     },
-    [onSelectWorkspace, close]
+    [workspaces, onSelectWorkspace, close]
   )
 
   return (
@@ -153,9 +145,9 @@ export function CommandPalette() {
         <CommandEmpty>No results found.</CommandEmpty>
 
         {/* Sessions */}
-        {sessions.length > 0 && (
-          <CommandGroup heading="Sessions">
-            {sessions.map((session) => (
+        <CommandGroup heading="Sessions">
+          {model.sessions.length > 0 ? (
+            model.sessions.map((session) => (
               <CommandItem
                 key={session.id}
                 value={`session:${session.name ?? ''}${session.preview ?? ''}${session.id}`}
@@ -171,17 +163,22 @@ export function CommandPalette() {
                   </span>
                 )}
               </CommandItem>
-            ))}
-          </CommandGroup>
-        )}
+            ))
+          ) : (
+            <CommandItem value="session:none" disabled>
+              <MessageSquare className="text-muted-foreground" />
+              <span className="text-muted-foreground">No recent sessions</span>
+            </CommandItem>
+          )}
+        </CommandGroup>
 
         {/* Sources */}
-        {visibleSources.length > 0 && (
-          <CommandGroup heading="Sources">
-            {visibleSources.map((source) => (
+        <CommandGroup heading="Sources">
+          {model.sources.length > 0 ? (
+            model.sources.map((source) => (
               <CommandItem
                 key={source.config.slug}
-                value={`source:${source.config.name}${source.config.type}`}
+                value={`source:${source.config.name}${source.config.type}${source.config.slug}`}
                 onSelect={() => handleSelectSource(source.config.slug)}
               >
                 <Plug className="text-muted-foreground" />
@@ -190,14 +187,19 @@ export function CommandPalette() {
                   {source.config.type}
                 </span>
               </CommandItem>
-            ))}
-          </CommandGroup>
-        )}
+            ))
+          ) : (
+            <CommandItem value="source:none" disabled>
+              <Plug className="text-muted-foreground" />
+              <span className="text-muted-foreground">No sources connected</span>
+            </CommandItem>
+          )}
+        </CommandGroup>
 
         {/* Skills */}
-        {visibleSkills.length > 0 && (
-          <CommandGroup heading="Skills">
-            {visibleSkills.map((skill) => (
+        <CommandGroup heading="Skills">
+          {model.skills.length > 0 ? (
+            model.skills.map((skill) => (
               <CommandItem
                 key={skill.slug}
                 value={`skill:${skill.metadata.name}${skill.slug}`}
@@ -206,9 +208,14 @@ export function CommandPalette() {
                 <Sparkles className="text-muted-foreground" />
                 <span className="flex-1 truncate">{skill.metadata.name}</span>
               </CommandItem>
-            ))}
-          </CommandGroup>
-        )}
+            ))
+          ) : (
+            <CommandItem value="skill:none" disabled>
+              <Sparkles className="text-muted-foreground" />
+              <span className="text-muted-foreground">No skills found</span>
+            </CommandItem>
+          )}
+        </CommandGroup>
 
         {/* Settings */}
         <CommandGroup heading="Settings">
@@ -228,9 +235,9 @@ export function CommandPalette() {
         </CommandGroup>
 
         {/* Workspaces */}
-        {workspaces.length > 0 && (
-          <CommandGroup heading="Workspaces">
-            {workspaces.map((workspace) => (
+        <CommandGroup heading="Workspaces">
+          {model.workspaces.length > 0 ? (
+            model.workspaces.map((workspace) => (
               <CommandItem
                 key={workspace.id}
                 value={`workspace:${workspace.name}${workspace.id}`}
@@ -242,9 +249,14 @@ export function CommandPalette() {
                   <Check className="ml-auto shrink-0 h-4 w-4 text-accent" />
                 )}
               </CommandItem>
-            ))}
-          </CommandGroup>
-        )}
+            ))
+          ) : (
+            <CommandItem value="workspace:none" disabled>
+              <FolderOpen className="text-muted-foreground" />
+              <span className="text-muted-foreground">No workspaces available</span>
+            </CommandItem>
+          )}
+        </CommandGroup>
 
         {/* Actions */}
         <CommandGroup heading="Actions">

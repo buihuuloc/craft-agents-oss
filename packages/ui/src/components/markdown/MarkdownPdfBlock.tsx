@@ -36,12 +36,13 @@ import { PDFPreviewOverlay } from '../overlay/PDFPreviewOverlay'
 import { ItemNavigator } from '../overlay/ItemNavigator'
 import { usePlatform } from '../../context/PlatformContext'
 import { ArtifactCompactCard } from './ArtifactCompactCard'
+import { resolvePdfJsWorkerSrc } from '../../lib/pdfjs-worker'
 import 'react-pdf/dist/Page/AnnotationLayer.css'
 import 'react-pdf/dist/Page/TextLayer.css'
 
 // Configure pdf.js worker using Vite's ?url import for cross-platform dev/prod compatibility
-import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
-pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorker
+import * as pdfjsWorkerModule from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
+pdfjs.GlobalWorkerOptions.workerSrc = resolvePdfJsWorkerSrc(pdfjsWorkerModule)
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -260,4 +261,3 @@ export function MarkdownPdfBlock({ code, className }: MarkdownPdfBlockProps) {
     </PdfBlockErrorBoundary>
   )
 }
-

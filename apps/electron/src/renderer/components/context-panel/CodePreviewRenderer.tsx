@@ -39,6 +39,7 @@ export function CodePreviewRenderer({ code, language = 'html' }: CodePreviewRend
   useEffect(() => {
     if (!src || !onReadFile) return
     setLoading(true)
+    setHtmlContent(null)
     setError(null)
     onReadFile(src)
       .then(setHtmlContent)

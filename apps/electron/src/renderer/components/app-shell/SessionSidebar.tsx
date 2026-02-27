@@ -14,7 +14,8 @@ import { Plus, Search, PanelLeftClose } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { isMac } from '@/lib/platform'
-import { sessionMetaMapAtom, type SessionMeta } from '@/atoms/sessions'
+import { sessionMetaMapAtom } from '@/atoms/sessions'
+import { getVisibleRootSessions } from '@/lib/session-visibility'
 import {
   useNavigation,
   useNavigationState,
@@ -41,16 +42,7 @@ export function SessionSidebar({ onNewSession, onCommandPaletteOpen, onToggleSid
     ? navigationState.details?.sessionId ?? null
     : null
 
-  // Filter and sort sessions: exclude hidden, archived, sub-sessions
-  const sessions = useMemo(() => {
-    const all: SessionMeta[] = []
-    for (const meta of sessionMetaMap.values()) {
-      if (meta.hidden || meta.isArchived || meta.parentSessionId) continue
-      all.push(meta)
-    }
-    all.sort((a, b) => (b.lastMessageAt ?? 0) - (a.lastMessageAt ?? 0))
-    return all
-  }, [sessionMetaMap])
+  const sessions = useMemo(() => getVisibleRootSessions(sessionMetaMap), [sessionMetaMap])
 
   const handleSelectSession = (sessionId: string) => {
     navigate(routes.view.allSessions(sessionId))
@@ -98,26 +90,32 @@ export function SessionSidebar({ onNewSession, onCommandPaletteOpen, onToggleSid
 
       {/* Session list */}
       <div className="flex-1 overflow-y-auto min-h-0">
-        {sessions.map((session) => {
-          const isActive = session.id === activeSessionId
-          return (
-            <button
-              key={session.id}
-              onClick={() => handleSelectSession(session.id)}
-              className={cn(
-                'w-full text-left px-3 py-2 text-sm truncate cursor-pointer rounded-md mx-2',
-                'transition-colors block',
-                // Constrain width so truncation works (subtract mx-2 = 16px padding)
-                'max-w-[calc(100%-16px)]',
-                isActive
-                  ? 'bg-foreground/[0.06] text-foreground'
-                  : 'text-foreground/60 hover:text-foreground hover:bg-foreground/[0.03]'
-              )}
-            >
-              {session.name || session.preview || 'Untitled'}
-            </button>
-          )
-        })}
+        {sessions.length === 0 ? (
+          <div className="px-3 py-4 mx-2 text-xs text-foreground/40">
+            No recent sessions yet.
+          </div>
+        ) : (
+          sessions.map((session) => {
+            const isActive = session.id === activeSessionId
+            return (
+              <button
+                key={session.id}
+                onClick={() => handleSelectSession(session.id)}
+                className={cn(
+                  'w-full text-left px-3 py-2 text-sm truncate cursor-pointer rounded-md mx-2',
+                  'transition-colors block',
+                  // Constrain width so truncation works (subtract mx-2 = 16px padding)
+                  'max-w-[calc(100%-16px)]',
+                  isActive
+                    ? 'bg-foreground/[0.06] text-foreground'
+                    : 'text-foreground/60 hover:text-foreground hover:bg-foreground/[0.03]'
+                )}
+              >
+                {session.name || session.preview || 'Untitled'}
+              </button>
+            )
+          })
+        )}
       </div>
 
       {/* Bottom section: workspace switcher + hide sidebar */}
